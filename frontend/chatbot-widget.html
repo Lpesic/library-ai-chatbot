@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knjižnica Halubajska Zora</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 40px 20px;
+      }
+
+      .page-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .page-content h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      .page-content p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 15px;
+      }
+
+      /* Chat Button - Floating */
+      .chat-button {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        transition:
+          transform 0.3s,
+          box-shadow 0.3s;
+        z-index: 1000;
+      }
+
+      .chat-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+      }
+
+      .chat-button svg {
+        width: 30px;
+        height: 30px;
+        fill: white;
+      }
+
+      .chat-button .close-icon {
+        display: none;
+      }
+
+      .chat-button.active .chat-icon {
+        display: none;
+      }
+
+      .chat-button.active .close-icon {
+        display: block;
+      }
+
+      /* Chat Widget */
+      .chat-widget {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 400px;
+        height: 600px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        display: none;
+        flex-direction: column;
+        z-index: 999;
+        animation: slideUp 0.3s ease-out;
+      }
+
+      .chat-widget.active {
+        display: flex;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 20px 20px 0 0;
+      }
+
+      .chat-header h2 {
+        font-size: 18px;
+        margin-bottom: 5px;
+      }
+
+      .chat-header p {
+        font-size: 12px;
+        opacity: 0.9;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f7f7f7;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        display: flex;
+        animation: fadeIn 0.3s;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .message.bot {
+        justify-content: flex-start;
+      }
+
+      .message-content {
+        max-width: 75%;
+        padding: 10px 14px;
+        border-radius: 15px;
+        line-height: 1.4;
+        font-size: 14px;
+      }
+
+      .message.user .message-content {
+        background: #667eea;
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.bot .message-content {
+        background: white;
+        color: #333;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .typing-indicator {
+        display: none;
+        padding: 10px 14px;
+        background: white;
+        border-radius: 15px;
+        width: fit-content;
+      }
+
+      .typing-indicator.active {
+        display: block;
+      }
+
+      .typing-indicator span {
+        height: 7px;
+        width: 7px;
+        background: #667eea;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 2px;
+        animation: typing 1.4s infinite;
+      }
+
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+        }
+        30% {
+          transform: translateY(-8px);
+        }
+      }
+
+      .quick-questions {
+        padding: 10px 15px;
+        background: #f7f7f7;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .quick-btn {
+        padding: 6px 12px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 15px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .quick-btn:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+      }
+
+      .chat-input-area {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #eee;
+        border-radius: 0 0 20px 20px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .chat-input-area input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 2px solid #eee;
+        border-radius: 20px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .chat-input-area input:focus {
+        border-color: #667eea;
+      }
+
+      .chat-input-area button {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: transform 0.2s;
+      }
+
+      .chat-input-area button:hover {
+        transform: translateY(-1px);
+      }
+
+      .chat-input-area button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      /* Notification Badge */
+      .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #ff4757;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+        display: none;
+      }
+
+      .notification-badge.active {
+        display: flex;
+      }
+
+      /* Mobile responsive */
+      @media (max-width: 768px) {
+        .chat-widget {
+          width: calc(100% - 40px);
+          height: calc(100vh - 140px);
+          right: 20px;
+          bottom: 90px;
+        }
+
+        .chat-button {
+          right: 20px;
+          bottom: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Glavna stranica content -->
+    <div class="page-content">
+      <h1>📚 Dobrodošli u Narodnu knjižnicu i čitaonicu Halubajska Zora</h1>
+
+      <p>
+        Narodna knjižnica i čitaonica Halubajska zora osnovana je 1948. godine
+        kao radnička knjižnica. Danas je moderna ustanova kulture koja prati
+        potrebe svojih korisnika i nudi raznolik fond knjiga, časopisa i ostalih
+        medija.
+      </p>
+
+      <h2>Naše usluge</h2>
+      <p>
+        • Posudba knjiga i časopisa<br />
+        • Čitaonica i studijski prostori<br />
+        • Digitalne knjige i audioknjige<br />
+        • Kulturni programi i radionice<br />
+        • Računala s pristupom internetu<br />
+        • Kopiranje i printanje
+      </p>
+
+      <h2>Radno vrijeme</h2>
+      <p>
+        Ponedjeljak - Petak: 8:00 - 20:00<br />
+        Subota: 8:00 - 14:00<br />
+        Nedjelja: zatvoreno
+      </p>
+
+      <h2>Kontakt</h2>
+      <p>
+        📍 Adresa: [Adresa knjižnice]<br />
+        📞 Telefon: [Broj telefona]<br />
+        ✉️ Email: [Email]<br />
+        🌐 Web:
+        <a href="https://www.halubajska-zora.hr" target="_blank"
+          >www.halubajska-zora.hr</a
+        >
+      </p>
+
+      <p
+        style="
+          margin-top: 30px;
+          padding: 20px;
+          background: #f0f0f0;
+          border-radius: 10px;
+        "
+      >
+        💡 <strong>Trebate pomoć?</strong> Kliknite na chat gumb u donjem desnom
+        kutu za brze odgovore!
+      </p>
+    </div>
+
+    <!-- Chat Button -->
+    <div class="chat-button" id="chatButton" onclick="toggleChat()">
+      <svg
+        class="chat-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"
+        />
+      </svg>
+      <svg
+        class="close-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+        />
+      </svg>
+      <div class="notification-badge" id="notificationBadge">1</div>
+    </div>
+
+    <!-- Chat Widget -->
+    <div class="chat-widget" id="chatWidget">
+      <div class="chat-header">
+        <h2>📚 Knjižnica Chatbot</h2>
+        <p>Pitajte me bilo što!</p>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message bot">
+          <div class="message-content">
+            Pozdrav! 👋 Ja sam AI asistent knjižnice. Mogu vam pomoći s
+            informacijama o knjižnici, pretraživanjem knjiga i preporukama. Što
+            vas zanima?
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-questions">
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Kako se učlaniti?')"
+        >
+          Učlanjenje
+        </button>
+        <button class="quick-btn" onclick="sendQuickQuestion('Radno vrijeme?')">
+          Radno vrijeme
+        </button>
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Koliko knjiga mogu posuditi?')"
+        >
+          Posudba
+        </button>
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Preporuči knjige')"
+        >
+          Knjige
+        </button>
+      </div>
+
+      <div class="chat-input-area">
+        <input
+          type="text"
+          id="chatInput"
+          placeholder="Upiši poruku..."
+          onkeypress="handleKeyPress(event)"
+        />
+        <button id="sendBtn" onclick="sendMessage()">Pošalji</button>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:8000";
+      const chatWidget = document.getElementById("chatWidget");
+      const chatButton = document.getElementById("chatButton");
+      const chatMessages = document.getElementById("chatMessages");
+      const chatInput = document.getElementById("chatInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const notificationBadge = document.getElementById("notificationBadge");
+
+      let isOpen = false;
+
+      function toggleChat() {
+        isOpen = !isOpen;
+
+        if (isOpen) {
+          chatWidget.classList.add("active");
+          chatButton.classList.add("active");
+          notificationBadge.classList.remove("active");
+          chatInput.focus();
+        } else {
+          chatWidget.classList.remove("active");
+          chatButton.classList.remove("active");
+        }
+      }
+
+      function addMessage(content, isUser = false) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "bot"}`;
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+        contentDiv.textContent = content;
+
+        messageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(messageDiv);
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Show notification if chat is closed
+        if (!isOpen && !isUser) {
+          notificationBadge.classList.add("active");
+        }
+      }
+
+      function showTypingIndicator() {
+        const indicator = document.createElement("div");
+        indicator.className = "message bot";
+        indicator.id = "typing-indicator";
+        indicator.innerHTML = `
+                <div class="typing-indicator active">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+        chatMessages.appendChild(indicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function hideTypingIndicator() {
+        const indicator = document.getElementById("typing-indicator");
+        if (indicator) {
+          indicator.remove();
+        }
+      }
+
+      async function sendMessage() {
+        const message = chatInput.value.trim();
+
+        if (!message) return;
+
+        addMessage(message, true);
+        chatInput.value = "";
+
+        sendBtn.disabled = true;
+        chatInput.disabled = true;
+
+        showTypingIndicator();
+
+        try {
+          const response = await fetch(`${API_URL}/api/chat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: message }),
+          });
+
+          const data = await response.json();
+
+          hideTypingIndicator();
+          addMessage(data.response);
+        } catch (error) {
+          hideTypingIndicator();
+          addMessage("Ups! Došlo je do greške. Molim pokušaj ponovno. 😕");
+          console.error("Error:", error);
+        } finally {
+          sendBtn.disabled = false;
+          chatInput.disabled = false;
+          chatInput.focus();
+        }
+      }
+
+      function sendQuickQuestion(question) {
+        chatInput.value = question;
+        sendMessage();
+      }
+
+      function handleKeyPress(event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      }
+
+      // Show welcome notification after 3 seconds
+      setTimeout(() => {
+        if (!isOpen) {
+          notificationBadge.classList.add("active");
+        }
+      }, 3000);
+    </script>
+  </body>
+</html>

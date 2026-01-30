@@ -1,0 +1,41 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+data/library.db
+
+# Data files (opcionalno - možeš ostaviti primjere)
+data/*.csv
+data/chroma_db/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+test_env.py

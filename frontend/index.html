@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knjižnica Halubajska Zora - Chatbot</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        width: 90%;
+        max-width: 800px;
+        height: 90vh;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+
+      .header p {
+        font-size: 14px;
+        opacity: 0.9;
+      }
+
+      .chat-container {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f7f7f7;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        display: flex;
+        animation: fadeIn 0.3s;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .message.bot {
+        justify-content: flex-start;
+      }
+
+      .message-content {
+        max-width: 70%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        line-height: 1.5;
+      }
+
+      .message.user .message-content {
+        background: #667eea;
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.bot .message-content {
+        background: white;
+        color: #333;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .input-area {
+        padding: 20px;
+        background: white;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+      }
+
+      #userInput {
+        flex: 1;
+        padding: 12px 16px;
+        border: 2px solid #eee;
+        border-radius: 25px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      #userInput:focus {
+        border-color: #667eea;
+      }
+
+      #sendBtn {
+        padding: 12px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: 600;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+
+      #sendBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      #sendBtn:active {
+        transform: translateY(0);
+      }
+
+      #sendBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .typing-indicator {
+        display: none;
+        padding: 12px 16px;
+        background: white;
+        border-radius: 18px;
+        width: fit-content;
+      }
+
+      .typing-indicator.active {
+        display: block;
+      }
+
+      .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        background: #667eea;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 2px;
+        animation: typing 1.4s infinite;
+      }
+
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+        }
+        30% {
+          transform: translateY(-10px);
+        }
+      }
+
+      .quick-questions {
+        padding: 10px 20px;
+        background: #f7f7f7;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .quick-btn {
+        padding: 8px 16px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .quick-btn:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📚 Knjižnica Halubajska Zora</h1>
+        <p>AI Chatbot - Pitajte me bilo što!</p>
+      </div>
+
+      <div class="chat-container" id="chatContainer">
+        <div class="message bot">
+          <div class="message-content">
+            Pozdrav! 👋 Ja sam AI asistent knjižnice. Mogu vam pomoći s
+            informacijama o knjižnici, pretraživanjem knjiga i preporukama za
+            čitanje. Što vas zanima?
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-questions">
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Kako se učlaniti?')"
+        >
+          Učlanjenje
+        </button>
+        <button class="quick-btn" onclick="sendQuickQuestion('Radno vrijeme?')">
+          Radno vrijeme
+        </button>
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Koliko knjiga mogu posuditi?')"
+        >
+          Posudba
+        </button>
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Imaš li knjige o internetu?')"
+        >
+          Pretraži knjige
+        </button>
+      </div>
+
+      <div class="input-area">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Upiši poruku..."
+          onkeypress="handleKeyPress(event)"
+        />
+        <button id="sendBtn" onclick="sendMessage()">Pošalji</button>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:8000";
+      const chatContainer = document.getElementById("chatContainer");
+      const userInput = document.getElementById("userInput");
+      const sendBtn = document.getElementById("sendBtn");
+
+      function addMessage(content, isUser = false) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "bot"}`;
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+        contentDiv.textContent = content;
+
+        messageDiv.appendChild(contentDiv);
+        chatContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      function showTypingIndicator() {
+        const indicator = document.createElement("div");
+        indicator.className = "message bot";
+        indicator.id = "typing-indicator";
+        indicator.innerHTML = `
+                <div class="typing-indicator active">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+        chatContainer.appendChild(indicator);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      function hideTypingIndicator() {
+        const indicator = document.getElementById("typing-indicator");
+        if (indicator) {
+          indicator.remove();
+        }
+      }
+
+      async function sendMessage() {
+        const message = userInput.value.trim();
+
+        if (!message) return;
+
+        // Add user message
+        addMessage(message, true);
+        userInput.value = "";
+
+        // Disable input
+        sendBtn.disabled = true;
+        userInput.disabled = true;
+
+        // Show typing indicator
+        showTypingIndicator();
+
+        try {
+          const response = await fetch(`${API_URL}/api/chat`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: message }),
+          });
+
+          const data = await response.json();
+
+          // Hide typing indicator
+          hideTypingIndicator();
+
+          // Add bot response
+          addMessage(data.response);
+        } catch (error) {
+          hideTypingIndicator();
+          addMessage("Ups! Došlo je do greške. Molim pokušaj ponovno. 😕");
+          console.error("Error:", error);
+        } finally {
+          // Re-enable input
+          sendBtn.disabled = false;
+          userInput.disabled = false;
+          userInput.focus();
+        }
+      }
+
+      function sendQuickQuestion(question) {
+        userInput.value = question;
+        sendMessage();
+      }
+
+      function handleKeyPress(event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      }
+
+      // Focus input on load
+      window.onload = () => {
+        userInput.focus();
+      };
+    </script>
+  </body>
+</html>
