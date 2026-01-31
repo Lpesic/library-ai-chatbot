@@ -5,6 +5,8 @@ REST API za chatbot i pretraživanje knjiga
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import sys
@@ -69,9 +71,9 @@ class Book(BaseModel):
 
 # ==================== ENDPOINTS ====================
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
+@app.get("/api")
+async def api_root():
+    """API Root endpoint"""
     return {
         "message": "Library Chatbot API",
         "version": "1.0.0",
@@ -79,7 +81,8 @@ async def root():
             "chat": "/api/chat",
             "books": "/api/books/search",
             "book_details": "/api/books/{book_id}",
-            "health": "/api/health"
+            "health": "/api/health",
+            "docs": "/docs"
         }
     }
 
@@ -166,7 +169,7 @@ async def get_popular_books(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==================== CHATBOT LOGIC ====================
+# CHATBOT LOGIC
 
 def generate_response(user_message: str) -> str:
     """Generira odgovor na korisničku poruku (template-based)"""
@@ -267,7 +270,16 @@ async def shutdown_event():
     print("API ugašen")
 
 
-# RUN
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
+if os.path.exists(frontend_dir):
+    # Glavni root vraća frontend
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return FileResponse(os.path.join(frontend_dir, "chatbot-widget.html"))
+    
+    # Mount static files
+    app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
