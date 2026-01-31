@@ -202,7 +202,7 @@ if __name__ == "__main__":
     
     # Scrape samo 5 knjiga za test
     print("\n2. Scrapam 5 knjiga sa SVIM detaljima...")
-    books = scraper.scrape_catalog_full(max_books=5, delay=1.5)
+    books = scraper.scrape_catalog_full(max_books=50, delay=2.0) # max broj knjiga
     
     # Spremanje
     print("\n3. Spremam podatke...")
