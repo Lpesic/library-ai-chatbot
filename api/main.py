@@ -248,7 +248,7 @@ def extract_keywords(query: str) -> list:
     return [w for w in words if w not in stop_words and len(w) > 2][:3]
 
 
-# ==================== STARTUP ====================
+# STARTUP
 
 @app.on_event("startup")
 async def startup_event():
@@ -267,7 +267,7 @@ async def shutdown_event():
     print("API ugašen")
 
 
-# ==================== RUN ====================
+# RUN
 
 if __name__ == "__main__":
     import uvicorn
