@@ -12,6 +12,10 @@ from typing import Optional, List
 import sys
 import os
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scraper.availability_checker import AvailabilityChecker
+availability_checker = AvailabilityChecker()
+
 # Dodaj parent directory u path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -95,6 +99,16 @@ async def health_check():
         "knowledge_base_docs": kb.get_count()
     }
 
+@app.get("/api/books/{book_id}/availability")
+async def check_book_availability(book_id: str):
+    """
+    Provjeri dostupnost knjige u stvarnom vremenu
+    """
+    try:
+        availability = availability_checker.check_availability(book_id)
+        return availability
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -174,7 +188,28 @@ def generate_response(user_message: str) -> str:
     """Generira odgovor na korisničku poruku (template-based)"""
     
     query_lower = user_message.lower()
-    
+    #0. PROVJERA DOSTUPNOSTI 
+    if any(word in query_lower for word in ['dostupn', 'posuden', 'je li', 'jel', 'ima li na', 'rezerv']):
+        # Pokušaj pronaći naziv knjige
+        # Jednostavna logika - traži knjigu po ključnim riječima
+        keywords = extract_keywords(user_message)
+        
+        if keywords:
+            # Pretraži bazu za ID knjige
+            books = db.search_books(keywords[0], limit=1)
+            
+            if books:
+                book = books[0]
+                book_id = book['id']
+                
+                # Provjeri dostupnost
+                availability = availability_checker.check_availability(book_id)
+                return availability_checker.format_availability_message(availability)
+            else:
+                return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
+        else:
+            return "Molim navedite naziv knjige čiju dostupnost želite provjeriti."    
+
     # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
     if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
         # Izvuci temu ako postoji
