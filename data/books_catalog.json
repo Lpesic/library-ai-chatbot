@@ -149,9 +149,9 @@
       "ljubavni roman",
       "kriminalistička proza",
       "serija obitelj adair",
-      "ljubavni triler",
       "treći dio",
       "škotska - mjesto radnje",
+      "ljubavni triler",
       "erotska proza",
       "žene i stariji muškarci - književna tema"
     ],
@@ -191,6 +191,548 @@
     "material_type": "knjiga",
     "notes": [
       "Nik Titanik je pseudonim Nikole Plečka."
+    ]
+  },
+  {
+    "id": "1008007",
+    "title": "Dugasta",
+    "author": "Vakula, Zoran",
+    "full_info": "Dugasta / napisao Zoran Vakula ; ilustrirao Nik Titanik",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=1008007",
+    "other_authors": [
+      "Plečko, Nikola (ilustrator)"
+    ],
+    "publisher": "Naklada Vakula",
+    "year": "2024",
+    "pages": "N/A",
+    "isbn": "9789538535031",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "M",
+        "description": "ala knjiga. Za djecu mlađe dobi (4-8 godina)"
+      }
+    ],
+    "tags": [
+      "slikovnica",
+      "edukativna slikovnica",
+      "vremenske prilike za djecu",
+      "duga za djecu",
+      "djevojčice - glavni likovi",
+      "duga-slikovnice",
+      "boje za djecu"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Nik Titanik je pseudonim Nikole Plečka."
+    ]
+  },
+  {
+    "id": "1034682",
+    "title": "Dnevni rituali velikih umova",
+    "author": "Currey, Mason",
+    "full_info": "Dnevni rituali velikih umova / Mason Currey ; s engleskoga prevela Sanja Ščibajlo",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=1034682",
+    "other_authors": [
+      "Ščibajlo, Sanja (prevoditeljica)"
+    ],
+    "publisher": "Budilnik izdavaštvo",
+    "year": "2025",
+    "pages": "324",
+    "isbn": "9789538442216",
+    "language": "hrvatski",
+    "subjects": [
+      "slavne osobe - psihološko gledište",
+      "slavne osobe - rituali",
+      "kreativnost",
+      "umjetničko stvaralaštvo"
+    ],
+    "classifications": [
+      {
+        "code": "159.944",
+        "description": "Rad i umor. Učinkovitost... Malaksalost. Stres"
+      }
+    ],
+    "tags": [
+      "dnevne rutine",
+      "navike slavnih",
+      "anegdote slavnih",
+      "poznate osobe"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: Daily rituals : how artists work."
+    ]
+  },
+  {
+    "id": "5011818",
+    "title": "Kraj priče",
+    "author": "Swanson, Louise",
+    "full_info": "Kraj priče / Louise Swanson ; prevela s engleskoga Mirta Jambrović",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=5011818",
+    "other_authors": [
+      "Jambrović, Mirta (prevoditeljica)"
+    ],
+    "publisher": "Znanje",
+    "year": "2025",
+    "pages": "335",
+    "isbn": "9789535302858 (tvrdi uvez)",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.111-312.4",
+        "description": "Engleska književnost. Kriminalistički romani"
+      }
+    ],
+    "tags": [
+      "triler",
+      "distopijska proza",
+      "nestale osobe - književna tema",
+      "zabrana književnosti - književna tema",
+      "nadzor - književna tema",
+      "bliska budućnost - vrijeme radnje",
+      "zabrana pisanja - književna tema",
+      "pričanje priča - književna tema",
+      "spisateljice - književna tema",
+      "žene i dječaci - književna tema",
+      "telefonski razgovori - književna tema"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: End of story."
+    ]
+  },
+  {
+    "id": "5011797",
+    "title": "Lijek za dušu",
+    "author": "Birtić, Tomislav",
+    "full_info": "Lijek za dušu / Tomislav Birtić ; [fotografije Tomislav Birtić ... et al.]",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=5011797",
+    "other_authors": [],
+    "publisher": "Rafinerija ideja",
+    "year": "2025",
+    "pages": "203",
+    "isbn": "9789538572029",
+    "language": "hrvatski",
+    "subjects": [
+      "kršćanska hodočašća - Santiago de Compostela"
+    ],
+    "classifications": [
+      {
+        "code": "821.163.42-992",
+        "description": "Hrvatska književnost. Putopisi"
+      }
+    ],
+    "tags": [
+      "put svetog jakova - književna tema",
+      "ilustrirana knjiga (fotografije)",
+      "putopis",
+      "hodočašća - književna tema",
+      "kršćanska hodočašća",
+      "camino - književna tema",
+      "santiago de compostela - književna tema"
+    ],
+    "material_type": "knjiga",
+    "notes": []
+  },
+  {
+    "id": "78000348",
+    "title": "Mjesečeva cesta",
+    "author": "Leipciger, Sarah",
+    "full_info": "Mjesečeva cesta / Sarah Leipciger ; prevela s engleskoga Maja Klarić",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=78000348",
+    "other_authors": [
+      "Klarić, Maja (prevoditeljica)"
+    ],
+    "publisher": "Znanje",
+    "year": "2025",
+    "pages": "321",
+    "isbn": "978-953-53-0294-0",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.111(71)-3",
+        "description": "Engleska književnost u Kanadi. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "roman ceste",
+      "nestala djeca - književna tema",
+      "kanada - mjesto radnje",
+      "raspad braka - književna tema",
+      "ponovni susreti - književna tema",
+      "gubitak djeteta - književna tema",
+      "obiteljski roman",
+      "roditeljstvo - književna tema",
+      "tuga - književna tema",
+      "neriješeni zločini - književna tema",
+      "skeletni ostaci - književna tema"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: The moon road."
+    ]
+  },
+  {
+    "id": "418001852",
+    "title": "Prenijet ću te preko Praga",
+    "author": "Mlinarević, Martina",
+    "full_info": "Prenijet ću te preko Praga / Martina Mlinarević",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=418001852",
+    "other_authors": [],
+    "publisher": "Hena com",
+    "year": "2025",
+    "pages": "145",
+    "isbn": "978-953-259-543-7",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.163.42(497.6)-3",
+        "description": "Hrvatska književnost u Bosni i Hercegovini. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "doseljenici u češku - književna tema",
+      "autobiografska proza",
+      "doseljenici u češku-književne teme i motivi",
+      "egzil - književna tema",
+      "ambasadorice - književna tema",
+      "prag-egzil-književne teme i motivi",
+      "prag - mjesto radnje"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Bilješka o autorici: str. 145."
+    ]
+  },
+  {
+    "id": "71001713",
+    "title": "Snježna pahuljica",
+    "author": "Davies, Benji",
+    "full_info": "Snježna pahuljica / Benji Davies ; [prijevod Dunja Flegar]",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=71001713",
+    "other_authors": [
+      "Flegar, Dunja (prevoditeljica)"
+    ],
+    "publisher": "Planet Zoe",
+    "year": "2025",
+    "pages": "N/A",
+    "isbn": "978-953-357-228-4",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "M",
+        "description": "ala knjiga. Za djecu mlađe dobi (4-8 godina)"
+      }
+    ],
+    "tags": [
+      "slikovnica",
+      "djevojčice - glavni likovi",
+      "vjerovanje u sebe - književna tema za djecu",
+      "pahulje - književna tema za djecu",
+      "želje - književna tema za djecu",
+      "božić - književna tema za djecu",
+      "zima - književna tema za djecu"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: The snowflake."
+    ]
+  },
+  {
+    "id": "58000363",
+    "title": "Ti biraš svoje bajke",
+    "author": "Sharratt, Nick",
+    "full_info": "Ti biraš svoje bajke / Nick Sharratt & Pippa Goodhart ; [prevela i prilagodila Ilona Posokhova]",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=58000363",
+    "other_authors": [
+      "Goodhart, Pippa (contributor)"
+    ],
+    "publisher": "Planet Zoe",
+    "year": "2025",
+    "pages": "N/A",
+    "isbn": "978-953-357-209-3",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "M",
+        "description": "ala knjiga. Za djecu mlađe dobi (4-8 godina)"
+      }
+    ],
+    "tags": [
+      "bajke"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: You choose fairy tales."
+    ]
+  },
+  {
+    "id": "71001369",
+    "title": "Treće carstvo",
+    "author": "Knausgord, Karl Ove",
+    "full_info": "Treće carstvo / Karl Ove Knausgard ; s norveškoga prevela Anja Majnarić",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=71001369",
+    "other_authors": [
+      "Majnarić, Anja (prevoditeljica)"
+    ],
+    "publisher": "OceanMore",
+    "year": "2025",
+    "pages": "433",
+    "isbn": "978-953-332-207-0",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.113.5-3",
+        "description": "Norveška književnost. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "suvremena proza",
+      "distopijska proza",
+      "serija jutarnja zvijezda",
+      "zvijezde - književna tema",
+      "treći dio",
+      "fantastični roman",
+      "besmrtnost-književne teme i motivi",
+      "višeperspektivno pripovijedanje",
+      "serija jutarnja zvijezda-treći dio",
+      "moskva - mjesto radnje",
+      "norveška proza",
+      "filozofska proza",
+      "besmrtnost - književna tema",
+      "nepouzdani pripovjedač",
+      "magijski realizam"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: Det tredje riket."
+    ]
+  },
+  {
+    "id": "428003521",
+    "title": "U Klarinu trbuhu",
+    "author": "Jauffret, Regis",
+    "full_info": "U Klarinu trbuhu / Regis Jauffret ; prevela s francuskog Maja Ručević",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=428003521",
+    "other_authors": [
+      "Ručević, Maja (prevoditeljica)"
+    ],
+    "publisher": "Hena com",
+    "year": "2025",
+    "pages": "230",
+    "isbn": "9789532595161",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.133.1-3",
+        "description": "Francuska književnost. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "incest-književne teme i motivi",
+      "hitlerovi roditelji - književna tema",
+      "ispovjedna proza",
+      "trudnoća - književna tema",
+      "biografski roman",
+      "povijesna fikcija",
+      "povijesni roman",
+      "austrija - mjesto radnje",
+      "19. st. - vrijeme radnje",
+      "incest - književna tema",
+      "psihološka proza",
+      "nasilje-književne teme i motivi",
+      "religiozni fanatizam - književna tema"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: Dans le ventre de klara."
+    ]
+  },
+  {
+    "id": "5011675",
+    "title": "Vjetar i zastave",
+    "author": "Simčić-Vava, Vlado",
+    "full_info": "Vjetar i zastave / Vlado Simcich Vava",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=5011675",
+    "other_authors": [],
+    "publisher": "V.B.Z.",
+    "year": "2025",
+    "pages": "173",
+    "isbn": "9789535208501",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.163.42-3",
+        "description": "Hrvatska književnost. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "društvena proza"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Bilješka o autoru: str. 173."
+    ]
+  },
+  {
+    "id": "370001770",
+    "title": "Tajna svih tajni : duhovni razgovori",
+    "author": "Darshan Singh",
+    "full_info": "Tajna svih tajni : duhovni razgovori / Darshan Singh ; s engleskoga prevela Tatjana Petrović",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=370001770",
+    "other_authors": [
+      "Petrović, Tatjana (prevoditeljica)"
+    ],
+    "publisher": "Škorpion",
+    "year": "2010",
+    "pages": "218",
+    "isbn": "978-953-289-053-2",
+    "language": "hrvatski",
+    "subjects": [
+      "duhovni život"
+    ],
+    "classifications": [
+      {
+        "code": "233",
+        "description": "Hinduizam u užem smislu"
+      }
+    ],
+    "tags": [
+      "duhovni razvoj",
+      "duhovni život-poruke",
+      "duhovni razgovori",
+      "duhovne misli",
+      "učenje sant mata",
+      "duhovni nauk",
+      "indijska mistika",
+      "hinduizam"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: The secret of secret."
+    ]
+  },
+  {
+    "id": "1019792",
+    "title": "Bitka na Sutjesci : pakao u raju",
+    "author": "Cimerman, Šimun",
+    "full_info": "Bitka na Sutjesci : pakao u raju / Šimun Cimerman ; [autor karata Šimun Cimerman] ; [crtanje vojnih karata Davor Denkovski]",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=1019792",
+    "other_authors": [],
+    "publisher": "Naklada Jesenski i Turk",
+    "year": "2025",
+    "pages": "415",
+    "isbn": "9789533810812",
+    "language": "hrvatski",
+    "subjects": [
+      "Jugoslavija. Narodnooslobodilačka vojska",
+      "Narodnooslobodilački rat u Jugoslaviji <1941/1945.> - vojne operacije - Sutjeska - 1943.",
+      "Narodnooslobodilački rat u Jugoslaviji <1941/1945.> - vojne operacije - Neretva - 1943.",
+      "Drugi svjetski rat <1939/1945.> - Jugoslavija - 1942/1943. - svjedočanstva"
+    ],
+    "classifications": [
+      {
+        "code": "94(497.1)\"1941/1945\"",
+        "description": "Jugoslavija u Drugom svjetskom ratu"
+      }
+    ],
+    "tags": [
+      "partizani",
+      "partizanski rat",
+      "drugi svjetski rat u jugoslaviji",
+      "bitka na neretvi",
+      "vojne operacije u nob",
+      "vojne operacije u drugom svjetskom ratu u jugoslaviji",
+      "bitka na sutjesci"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Bilješka o autoru: str. 413-415."
+    ]
+  },
+  {
+    "id": "55000313",
+    "title": "Od glave do pete : (tema: odijevanje) : [zbornik tekstova]",
+    "author": "N/A",
+    "full_info": "Od glave do pete : (tema: odijevanje) : [zbornik tekstova] / agentica Julijana Matanović ; [ilustracije Igor Dobranić]",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=55000313",
+    "other_authors": [
+      "Matanović, Julijana (idejni začetnik)",
+      "Matanović, Julijana (idejni začetnik)"
+    ],
+    "publisher": "Lađa od vode",
+    "year": "2025",
+    "pages": "209",
+    "isbn": "9789535071983",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.163.42-82",
+        "description": "Hrvatska književnost. Poligrafije. Aforizmi. Maksime"
+      }
+    ],
+    "tags": [
+      "žene - književna tema",
+      "ilustrirana knjiga",
+      "kratka priča",
+      "moda - književna tema",
+      "hrvatska kratka priča",
+      "odijevanje - književna tema"
+    ],
+    "material_type": "knjiga",
+    "notes": []
+  },
+  {
+    "id": "1199002919",
+    "title": "Skandal je kriv za sve : [četvrti roman iz serije o obitelji Rokesby]",
+    "author": "Quinn, Julia",
+    "full_info": "Skandal je kriv za sve : [četvrti roman iz serije o obitelji Rokesby] / Julia Quinn ; s engleskoga prevela Lidija Toman",
+    "url": "https://katalog.halubajska-zora.hr/pagesResults/bibliografskiZapis.aspx?selectedId=1199002919",
+    "other_authors": [
+      "Toman, Lidija (prevoditeljica)"
+    ],
+    "publisher": "Mozaik knjiga",
+    "year": "2024",
+    "pages": "310",
+    "isbn": "978-953-14-3698-4 (meki uvez)",
+    "language": "hrvatski",
+    "subjects": [],
+    "classifications": [
+      {
+        "code": "821.111(73)-3",
+        "description": "Američka književnost. Romani, novele, pripovijetke"
+      }
+    ],
+    "tags": [
+      "ljubavni roman",
+      "serija obitelj rokesby",
+      "četvrti dio",
+      "skandali - književna tema",
+      "plemstvo u velikoj britaniji - književna tema",
+      "ljubavna proza",
+      "povijesna proza",
+      "regentsko doba - vrijeme radnje",
+      "studenti medicine - književna tema",
+      "otmice - književna tema",
+      "18. st. - vrijeme radnje",
+      "povijesna romansa",
+      "brak iz interesa - književna tema",
+      "serija obitelj rokseby-četvrti dio"
+    ],
+    "material_type": "knjiga",
+    "notes": [
+      "Prijevod djela: First comes scandal."
     ]
   }
 ]

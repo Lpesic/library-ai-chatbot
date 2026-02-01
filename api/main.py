@@ -307,6 +307,25 @@ async def startup_event():
     """Pokreće se kad se API pokrene"""
     print("=" * 70)
     print("🚀 Library Chatbot API pokrenut!")
+    
+    # Provjeri je li baza prazna
+    all_books = db.get_all_books(limit=1)
+    
+    if not all_books or len(all_books) == 0:
+        print("⚠️ Baza je prazna - učitavam knjige iz JSON-a...")
+        
+        # Učitaj iz JSON-a
+        import glob
+        json_files = glob.glob("data/books_catalog*.json")
+        
+        if json_files:
+            count = db.import_from_json(json_files[0])
+            print(f"✅ Učitano {count} knjiga u bazu")
+        else:
+            print("❌ Nema JSON fajlova za import!")
+    else:
+        print(f"✅ Baza već sadrži knjige: {len(all_books)}")
+    
     print(f"📚 Knowledge base: {kb.get_count()} dokumenata")
     print(f"📖 Baza podataka: spremna")
     print("=" * 70)
