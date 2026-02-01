@@ -69,8 +69,7 @@ class Book(BaseModel):
     publisher: Optional[str] = None
 
 
-# ==================== ENDPOINTS ====================
-
+# ENDPOINTS 
 @app.get("/api")
 async def api_root():
     """API Root endpoint"""
@@ -176,55 +175,105 @@ def generate_response(user_message: str) -> str:
     
     query_lower = user_message.lower()
     
-    # 1. Pitanja o knjižnici
+    # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
+    if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
+        # Izvuci temu ako postoji
+        keywords = extract_keywords(user_message)
+        
+        books = []
+        if keywords and len(keywords) > 0:
+            # Pretraži po temi
+            for keyword in keywords[:2]:
+                books.extend(db.search_books(keyword, limit=4))
+        
+        # Ako nema knjiga po temi ili nema teme, daj popularne
+        if not books:
+            books = db.get_all_books(limit=5)
+        
+        if books:
+            # Ukloni duplikate
+            unique_books = {book['id']: book for book in books}.values()
+            books_list = list(unique_books)[:5]
+            
+            response = "📚 **Evo mojih preporuka:**\n\n"
+            for i, book in enumerate(books_list, 1):
+                response += f"{i}. **{book['title']}** - {book['author']}"
+                if book.get('year'):
+                    response += f" ({book['year']})"
+                response += "\n"
+            
+            response += "\n💡 Za više detalja ili rezervaciju, provjerite katalog: https://katalog.halubajska-zora.hr"
+            return response
+        else:
+            return "Trenutno nemam knjiga u bazi za preporuku. Provjerite katalog: https://katalog.halubajska-zora.hr"
+    
+    # 2. Pitanja o knjižnici
     if any(word in query_lower for word in ['učlaniti', 'članarina', 'upis']):
-        return ("📚 Za učlanjenje trebate osobnu iskaznicu i pristupnicu. "
-                "Članarina se plaća godišnje po kategorijama. "
+        return ("📚 **Učlanjenje u knjižnicu**\n\n"
+                "Za učlanjenje trebate osobnu iskaznicu i pristupnicu. "
+                "Članarina se plaća godišnje po kategorijama.\n\n"
                 "Više na: https://www.halubajska-zora.hr")
     
-    if any(word in query_lower for word in ['radno vrijeme', 'otvoreno', 'kada']):
-        return ("⏰ Knjižnica radi radnim danima 8:00-20:00, subotom 8:00-14:00. "
-                "Više detalja: https://www.halubajska-zora.hr")
+    if any(word in query_lower for word in ['radno vrijeme', 'otvoreno', 'kada', 'kada radi']):
+        return ("⏰ **Radno vrijeme:**\n\n"
+                "• Radnim danima: 8:00 - 20:00\n"
+                "• Subotom: 8:00 - 14:00\n"
+                "• Nedjeljom: zatvoreno\n\n"
+                "Više na: https://www.halubajska-zora.hr")
     
-    if any(word in query_lower for word in ['posuditi', 'posudba', 'koliko knjiga']):
-        return ("📖 Možete posuditi do 4 knjige na 30 dana. "
-                "Produženje je moguće ako knjiga nije rezervirana.")
+    if any(word in query_lower for word in ['posuditi', 'posudba', 'koliko knjiga', 'rok posudbe']):
+        return ("📖 **Posudba knjiga:**\n\n"
+                "• Do 4 knjige istovremeno\n"
+                "• Rok: 30 dana\n"
+                "• Produženje moguće ako nije rezervirana\n\n"
+                "Za rezervaciju: https://katalog.halubajska-zora.hr")
     
-    if any(word in query_lower for word in ['e-knjig', 'digitalne', 'online']):
-        return ("💻 Da! Imamo e-knjige i audioknige putem ZaKi Book platforme. "
-                "Do 4 naslova mjesečno na 4 uređaja.")
+    if any(word in query_lower for word in ['e-knjig', 'digitalne', 'online', 'audio']):
+        return ("💻 **E-knjige i audioknige:**\n\n"
+                "Dostupne putem ZaKi Book platforme.\n"
+                "• Do 4 naslova mjesečno\n"
+                "• Na 4 uređaja\n\n"
+                "Više: https://www.halubajska-zora.hr")
     
-    # 2. Pretraživanje knjiga
-    if any(word in query_lower for word in ['knjiga', 'knjige', 'autor']):
+    if any(word in query_lower for word in ['kasn', 'kazna', 'zakasnio']):
+        return ("⚠️ **Kašnjenje:**\n\n"
+                "Za svaki dan kašnjenja naplaćuje se kazna.\n"
+                "Preporučujemo pravovremeno vraćanje ili produženje!")
+    
+    if any(word in query_lower for word in ['produžiti', 'produženje']):
+        return ("🔄 **Produženje posudbe:**\n\n"
+                "Možete produžiti:\n"
+                "• Online - 'Moja iskaznica'\n"
+                "• Telefonski\n"
+                "• Osobno\n\n"
+                "Ako knjiga nije rezervirana.")
+    
+    # 3. Pretraživanje knjiga (specifično)
+    if any(word in query_lower for word in ['knjiga o', 'knjige o', 'autor', 'naslov', 'imate li', 'imaš li']):
         keywords = extract_keywords(user_message)
         
         if keywords:
             books = []
             for keyword in keywords[:2]:
-                books.extend(db.search_books(keyword, limit=3))
+                books.extend(db.search_books(keyword, limit=5))
             
             if books:
                 unique_books = {book['id']: book for book in books}.values()
-                books_list = list(unique_books)[:3]
+                books_list = list(unique_books)[:5]
                 
-                response = f"Pronašao sam {len(books_list)} {'knjigu' if len(books_list) == 1 else 'knjige'}:\n\n"
-                for book in books_list:
-                    response += f"• {book['title']} - {book['author']}"
+                response = f"🔍 **Pronašao sam {len(books_list)} {'knjigu' if len(books_list) == 1 else 'knjige'}:**\n\n"
+                
+                for i, book in enumerate(books_list, 1):
+                    response += f"{i}. **{book['title']}**\n"
+                    response += f"   📝 Autor: {book['author']}\n"
                     if book.get('year'):
-                        response += f" ({book['year']})"
+                        response += f"   📅 {book['year']}\n"
+                    if book.get('isbn'):
+                        response += f"   📚 ISBN: {book['isbn']}\n"
                     response += "\n"
                 
-                response += "\nZa dostupnost provjerite katalog: https://katalog.halubajska-zora.hr"
+                response += "💡 Za dostupnost: https://katalog.halubajska-zora.hr"
                 return response
-    
-    # 3. Preporuke
-    if any(word in query_lower for word in ['preporuči', 'preporuka', 'što čitati']):
-        books = db.get_all_books(limit=3)
-        if books:
-            response = "Evo nekoliko preporuka:\n\n"
-            for book in books:
-                response += f"• {book['title']} - {book['author']}\n"
-            return response
     
     # 4. Knowledge base search
     kb_results = kb.search(user_message, n_results=2)
@@ -234,12 +283,12 @@ def generate_response(user_message: str) -> str:
         if len(content) > 300:
             content = content[:300] + "..."
         
-        return content + "\n\nViše na: https://www.halubajska-zora.hr"
+        return content + "\n\nViše: https://www.halubajska-zora.hr"
     
     # 5. Default
-    return ("Mogu vam pomoći s:\n"
-            "• Informacijama o knjižnici\n"
-            "• Pretraživanjem knjiga\n"
+    return ("📚 **Dobrodošli!** Mogu vam pomoći s:\n\n"
+            "• Informacijama o knjižnici (radno vrijeme, članstvo...)\n"
+            "• Pretraživanjem knjiga po naslovu ili autoru\n"
             "• Preporukama za čitanje\n\n"
             "Što vas zanima?")
 
