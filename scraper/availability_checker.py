@@ -147,6 +147,12 @@ class AvailabilityChecker:
                                 })
         
         return locations
+    
+    def _extract_location_name(self, text: str) -> str:
+        # Čisti tekst lokacije od brojeva telefona i viška razmaka
+        import re
+        clean_text = re.sub(r'tel:.*', '', text)
+        return clean_text.strip()
 
     def _parse_row_status(self, row) -> Dict:
         try:
