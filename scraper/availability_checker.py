@@ -48,9 +48,7 @@ class AvailabilityChecker:
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # DEBUG - spremi HTML
-            with open('data/availability_debug.html', 'w', encoding='utf-8') as f:
-                f.write(soup.prettify())
-            print("✓ HTML spremljen u data/availability_debug.html")
+            logger.info(f"Dohvaćen HTML za knjigu {book_id}")
 
             # Dohvati naslov
             title_div = soup.find('div', {'id': 'divNaslov'})
@@ -77,6 +75,19 @@ class AvailabilityChecker:
                 'locations': [],
                 'error': str(e)
             }
+        
+def format_availability_message(self, availability: Dict) -> str:
+        if not availability.get('locations'):
+            return f"Nažalost, trenutno ne mogu pronaći podatke o dostupnosti za knjigu: {availability.get('title', 'Nepoznato')}."
+        
+        msg = f"🔍 **Dostupnost za: {availability['title']}**\n"
+        for loc in availability['locations']:
+            status_emoji = "✅" if loc['status'] == 'available' else "❌"
+            status_text = "Dostupno" if loc['status'] == 'available' else f"Posuđeno (rok: {loc['due_date']})"
+            msg += f"\n{status_emoji} **{loc['location']}**"
+            msg += f"\n   Status: {status_text}"
+            msg += f"\n   Signatura: `{loc['signature']}`\n"
+        return msg        
     
 def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
     """Parsira lokacije i statuse iz HTML-a"""
@@ -119,97 +130,61 @@ def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
     return locations
 
 def _parse_row_status(self, row) -> Dict:
-    """Parsira jedan red tablice sa statusom"""
     try:
         cells = row.find_all('td')
-        
         if len(cells) < 3:
             return None
-        
-        # Struktura: Lokacija | Signatura | Status | Napomena | ...
-        location_cell = cells[0].get_text(strip=True)  # npr. "282 Opći fond"
-        signature = cells[1].get_text(strip=True)      # npr. "K NESBOE v"
-        status_cell = cells[2]                          # HTML element sa statusom
-        
-        # Dohvati status text
+
+        signature = cells[1].get_text(strip=True)
+        status_cell = cells[2]
+        status_img = status_cell.find('img')
         status_text = status_cell.get_text(strip=True)
         
-        # Provjeri ima li sliku za status
-        status_img = status_cell.find('img')
-        
-        # Parsiraj status
+        # 1. PROVJERA ZA E-KNJIGU (Gumb/Onclick)
+        # Tražimo bilo što što ima 'posudbaLCP' u HTML-u tog polja
+        if 'posudbaLCP' in str(status_cell):
+            return {
+                'signature': signature,
+                'status': 'available',
+                'note': '📱 E-knjiga (dostupna za posudbu)',
+                'due_date': None
+            }
+
+        # 2. PROVJERA PREKO SLIKE (src)
         if status_img:
-            img_src = status_img.get('src', '')
+            img_src = status_img.get('src', '').lower()
             
-            if 'posudjeno' in img_src or 'posuđeno' in img_src:
-                # Izvuci datum
-                import re
-                date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
-                due_date = date_match.group(1) if date_match else None
-                
-                return {
-                    'signature': signature,
-                    'status': 'borrowed',
-                    'note': status_text,
-                    'due_date': due_date,
-                    'location_detail': location_cell
-                }
-            
-            elif 'dostupno' in img_src:
+            # Ako je kvačica (za_posudbu.png)
+            if 'za_posudbu' in img_src:
                 return {
                     'signature': signature,
                     'status': 'available',
-                    'note': status_text,
-                    'due_date': None,
-                    'location_detail': location_cell
+                    'note': 'Dostupno',
+                    'due_date': None
                 }
-        
-        # Ako nema slike, provjeri tekst
-        status_lower = status_text.lower()
-        
-        if 'posuđeno' in status_lower or 'posudeno' in status_lower:
-            import re
-            date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
-            due_date = date_match.group(1) if date_match else None
             
+            # Ako je posuđeno (posudjeno.png)
+            elif 'posudjeno' in img_src or 'posuđeno' in img_src:
+                import re
+                date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
+                due_date = date_match.group(1) if date_match else "nepoznat datum"
+                return {
+                    'signature': signature,
+                    'status': 'borrowed',
+                    'note': f'Posuđeno do {due_date}',
+                    'due_date': due_date
+                }
+
+        # 3. FALLBACK (ako nema slike, provjeri tekst)
+        if 'dostupno' in status_text.lower():
             return {
-                'signature': signature,
-                'status': 'borrowed',
-                'note': status_text,
-                'due_date': due_date,
-                'location_detail': location_cell
+                'signature': signature, 'status': 'available', 'note': 'Dostupno'
             }
-        
-        elif 'provjerite' in status_lower:
-            return {
-                'signature': signature,
-                'status': 'available',
-                'note': 'Provjerite status - vjerojatno dostupna',
-                'due_date': None,
-                'location_detail': location_cell
-            }
-        
-        elif 'dostupno' in status_lower:
-            return {
-                'signature': signature,
-                'status': 'available',
-                'note': status_text,
-                'due_date': None,
-                'location_detail': location_cell
-            }
-        
-        else:
-            # Nepoznat status
-            return {
-                'signature': signature,
-                'status': 'unknown',
-                'note': status_text,
-                'due_date': None,
-                'location_detail': location_cell
-            }
-        
+            
+        return None # Ako ništa ne odgovara, preskoči red
+
     except Exception as e:
-        logger.error(f"Greška pri parsiranju reda: {e}")
+        logger.error(f"Error parsing row: {e}")
         return None
 
 # Test
