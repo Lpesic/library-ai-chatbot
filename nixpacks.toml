@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = [
+  "gcc",
+  "libxml2",
+  "libxslt",
+  "sqlite",
+  "pkg-config"
+]
