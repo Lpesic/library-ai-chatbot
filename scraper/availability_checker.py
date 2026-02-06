@@ -76,7 +76,7 @@ class AvailabilityChecker:
                 'error': str(e)
             }
         
-def format_availability_message(self, availability: dict) -> str:
+    def format_availability_message(self, availability: dict) -> str:
         """
         Pretvara podatke o dostupnosti u lijepo formatiranu poruku za chat.
         """
@@ -108,103 +108,103 @@ def format_availability_message(self, availability: dict) -> str:
             
         return msg     
     
-def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
-    """Parsira lokacije i statuse iz HTML-a"""
-    locations = []
-    
-    # Pronađi sve div-ove koji sadrže lokacijske informacije
-    # Traži h3/h4 koji imaju naziv lokacije prije tablice
-    all_divs = soup.find_all('div')
-    
-    for div in all_divs:
-        # Traži h3 ili h4 sa lokacijom
-        location_header = div.find(['h3', 'h4'])
+    def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
+        """Parsira lokacije i statuse iz HTML-a"""
+        locations = []
         
-        if location_header:
-            location_text = location_header.get_text(strip=True)
+        # Pronađi sve div-ove koji sadrže lokacijske informacije
+        # Traži h3/h4 koji imaju naziv lokacije prije tablice
+        all_divs = soup.find_all('div')
+        
+        for div in all_divs:
+            # Traži h3 ili h4 sa lokacijom
+            location_header = div.find(['h3', 'h4'])
             
-            # Filtriraj samo prave lokacijske headinge
-            if any(keyword in location_text for keyword in ['Knjižnica', 'Središnja', 'Ogranak', 'tel:']):
-                location_name = self._extract_location_name(location_text)
+            if location_header:
+                location_text = location_header.get_text(strip=True)
                 
-                # Pronađi tablicu nakon headera (u istom div-u ili sljedećem)
-                table = div.find('table') or location_header.find_next('table')
-                
-                if table:
-                    # Traži sve redove u tablici
-                    rows = table.find_all('tr')
+                # Filtriraj samo prave lokacijske headinge
+                if any(keyword in location_text for keyword in ['Knjižnica', 'Središnja', 'Ogranak', 'tel:']):
+                    location_name = self._extract_location_name(location_text)
                     
-                    for row in rows[1:]:  # Preskoči header row
-                        status_info = self._parse_row_status(row)
+                    # Pronađi tablicu nakon headera (u istom div-u ili sljedećem)
+                    table = div.find('table') or location_header.find_next('table')
+                    
+                    if table:
+                        # Traži sve redove u tablici
+                        rows = table.find_all('tr')
                         
-                        if status_info:
-                            locations.append({
-                                'location': location_name,
-                                'signature': status_info.get('signature', 'N/A'),
-                                'status': status_info.get('status', 'unknown'),
-                                'note': status_info.get('note', ''),
-                                'due_date': status_info.get('due_date', None)
-                            })
-    
-    return locations
-
-def _parse_row_status(self, row) -> Dict:
-    try:
-        cells = row.find_all('td')
-        if len(cells) < 3:
-            return None
-
-        signature = cells[1].get_text(strip=True)
-        status_cell = cells[2]
-        status_img = status_cell.find('img')
-        status_text = status_cell.get_text(strip=True)
+                        for row in rows[1:]:  # Preskoči header row
+                            status_info = self._parse_row_status(row)
+                            
+                            if status_info:
+                                locations.append({
+                                    'location': location_name,
+                                    'signature': status_info.get('signature', 'N/A'),
+                                    'status': status_info.get('status', 'unknown'),
+                                    'note': status_info.get('note', ''),
+                                    'due_date': status_info.get('due_date', None)
+                                })
         
-        # 1. PROVJERA ZA E-KNJIGU (Gumb/Onclick)
-        # Tražimo bilo što što ima 'posudbaLCP' u HTML-u tog polja
-        if 'posudbaLCP' in str(status_cell):
-            return {
-                'signature': signature,
-                'status': 'available',
-                'note': '📱 E-knjiga (dostupna za posudbu)',
-                'due_date': None
-            }
+        return locations
 
-        # 2. PROVJERA PREKO SLIKE (src)
-        if status_img:
-            img_src = status_img.get('src', '').lower()
+    def _parse_row_status(self, row) -> Dict:
+        try:
+            cells = row.find_all('td')
+            if len(cells) < 3:
+                return None
+
+            signature = cells[1].get_text(strip=True)
+            status_cell = cells[2]
+            status_img = status_cell.find('img')
+            status_text = status_cell.get_text(strip=True)
             
-            # Ako je kvačica (za_posudbu.png)
-            if 'za_posudbu' in img_src:
+            # 1. PROVJERA ZA E-KNJIGU (Gumb/Onclick)
+            # Tražimo bilo što što ima 'posudbaLCP' u HTML-u tog polja
+            if 'posudbaLCP' in str(status_cell):
                 return {
                     'signature': signature,
                     'status': 'available',
-                    'note': 'Dostupno',
+                    'note': '📱 E-knjiga (dostupna za posudbu)',
                     'due_date': None
                 }
-            
-            # Ako je posuđeno (posudjeno.png)
-            elif 'posudjeno' in img_src or 'posuđeno' in img_src:
-                import re
-                date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
-                due_date = date_match.group(1) if date_match else "nepoznat datum"
+
+            # 2. PROVJERA PREKO SLIKE (src)
+            if status_img:
+                img_src = status_img.get('src', '').lower()
+                
+                # Ako je kvačica (za_posudbu.png)
+                if 'za_posudbu' in img_src:
+                    return {
+                        'signature': signature,
+                        'status': 'available',
+                        'note': 'Dostupno',
+                        'due_date': None
+                    }
+                
+                # Ako je posuđeno (posudjeno.png)
+                elif 'posudjeno' in img_src or 'posuđeno' in img_src:
+                    import re
+                    date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
+                    due_date = date_match.group(1) if date_match else "nepoznat datum"
+                    return {
+                        'signature': signature,
+                        'status': 'borrowed',
+                        'note': f'Posuđeno do {due_date}',
+                        'due_date': due_date
+                    }
+
+            # 3. FALLBACK (ako nema slike, provjeri tekst)
+            if 'dostupno' in status_text.lower():
                 return {
-                    'signature': signature,
-                    'status': 'borrowed',
-                    'note': f'Posuđeno do {due_date}',
-                    'due_date': due_date
+                    'signature': signature, 'status': 'available', 'note': 'Dostupno'
                 }
+                
+            return None # Ako ništa ne odgovara, preskoči red
 
-        # 3. FALLBACK (ako nema slike, provjeri tekst)
-        if 'dostupno' in status_text.lower():
-            return {
-                'signature': signature, 'status': 'available', 'note': 'Dostupno'
-            }
-            
-        return None # Ako ništa ne odgovara, preskoči red
-
-    except Exception as e:
-        logger.error(f"Error parsing row: {e}")
-        return None
+        except Exception as e:
+            logger.error(f"Error parsing row: {e}")
+            return None
 
 # Test
 if __name__ == "__main__":
