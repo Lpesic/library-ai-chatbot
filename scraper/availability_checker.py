@@ -78,167 +78,139 @@ class AvailabilityChecker:
                 'error': str(e)
             }
     
-    def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
-        """Parsira lokacije i statuse iz HTML-a"""
-        locations = []
+def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
+    """Parsira lokacije i statuse iz HTML-a"""
+    locations = []
+    
+    # Pronađi sve div-ove koji sadrže lokacijske informacije
+    # Traži h3/h4 koji imaju naziv lokacije prije tablice
+    all_divs = soup.find_all('div')
+    
+    for div in all_divs:
+        # Traži h3 ili h4 sa lokacijom
+        location_header = div.find(['h3', 'h4'])
         
-        # Pronađi sve tablice sa lokacijama
-        # Traži h3/h4 headinge koji imaju naziv lokacije
-        location_headers = soup.find_all(['h3', 'h4', 'strong'])
-        
-        for header in location_headers:
-            header_text = header.get_text(strip=True)
+        if location_header:
+            location_text = location_header.get_text(strip=True)
             
-            # Filtriraj samo lokacijske headinge (sadrže adresu ili tel)
-            if 'tel:' in header_text or 'Knjižnica' in header_text or 'Središnja' in header_text:
-                location_name = self._extract_location_name(header_text)
+            # Filtriraj samo prave lokacijske headinge
+            if any(keyword in location_text for keyword in ['Knjižnica', 'Središnja', 'Ogranak', 'tel:']):
+                location_name = self._extract_location_name(location_text)
                 
-                # Pronađi tablicu nakon ovog headera
-                table = header.find_next('table')
+                # Pronađi tablicu nakon headera (u istom div-u ili sljedećem)
+                table = div.find('table') or location_header.find_next('table')
                 
                 if table:
-                    # Traži red sa statusom
-                    status_row = self._find_status_in_table(table)
+                    # Traži sve redove u tablici
+                    rows = table.find_all('tr')
                     
-                    if status_row:
-                        locations.append({
-                            'location': location_name,
-                            'signature': status_row.get('signature', 'N/A'),
-                            'status': status_row.get('status', 'unknown'),
-                            'note': status_row.get('note', ''),
-                            'due_date': status_row.get('due_date', None)
-                        })
+                    for row in rows[1:]:  # Preskoči header row
+                        status_info = self._parse_row_status(row)
+                        
+                        if status_info:
+                            locations.append({
+                                'location': location_name,
+                                'signature': status_info.get('signature', 'N/A'),
+                                'status': status_info.get('status', 'unknown'),
+                                'note': status_info.get('note', ''),
+                                'due_date': status_info.get('due_date', None)
+                            })
+    
+    return locations
+
+def _parse_row_status(self, row) -> Dict:
+    """Parsira jedan red tablice sa statusom"""
+    try:
+        cells = row.find_all('td')
         
-        return locations
-    
-    def _extract_location_name(self, text: str) -> str:
-        """Izvlači naziv lokacije iz headinga"""
-        # Primjer: "Središnja knjižnica Marinići, Marinići 9, ..."
-        # Uzmi samo prvi dio
-        parts = text.split(',')
-        if parts:
-            return parts[0].strip()
-        return text.strip()
-    
-    def _find_status_in_table(self, table) -> Dict:
-        """Traži status u tablici"""
-        try:
-            rows = table.find_all('tr')
+        if len(cells) < 3:
+            return None
+        
+        # Struktura: Lokacija | Signatura | Status | Napomena | ...
+        location_cell = cells[0].get_text(strip=True)  # npr. "282 Opći fond"
+        signature = cells[1].get_text(strip=True)      # npr. "K NESBOE v"
+        status_cell = cells[2]                          # HTML element sa statusom
+        
+        # Dohvati status text
+        status_text = status_cell.get_text(strip=True)
+        
+        # Provjeri ima li sliku za status
+        status_img = status_cell.find('img')
+        
+        # Parsiraj status
+        if status_img:
+            img_src = status_img.get('src', '')
             
-            for row in rows:
-                cells = row.find_all('td')
+            if 'posudjeno' in img_src or 'posuđeno' in img_src:
+                # Izvuci datum
+                import re
+                date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
+                due_date = date_match.group(1) if date_match else None
                 
-                if len(cells) >= 3:
-                    # Obično format: Lokacija | Signatura | Status | Napomena
-                    signature = cells[1].get_text(strip=True) if len(cells) > 1 else 'N/A'
-                    status_text = cells[2].get_text(strip=True) if len(cells) > 2 else ''
-                    note = cells[3].get_text(strip=True) if len(cells) > 3 else ''
-                    
-                    # Parsiraj status
-                    status_info = self._parse_status(status_text, note)
-                    
-                    return {
-                        'signature': signature,
-                        'status': status_info['status'],
-                        'note': status_info['note'],
-                        'due_date': status_info['due_date']
-                    }
-        except Exception as e:
-            logger.error(f"Greška pri parsiranju tablice: {e}")
+                return {
+                    'signature': signature,
+                    'status': 'borrowed',
+                    'note': status_text,
+                    'due_date': due_date,
+                    'location_detail': location_cell
+                }
+            
+            elif 'dostupno' in img_src:
+                return {
+                    'signature': signature,
+                    'status': 'available',
+                    'note': status_text,
+                    'due_date': None,
+                    'location_detail': location_cell
+                }
         
-        return {}
-    
-    def _parse_status(self, status_text: str, note: str = '') -> Dict:
-        """
-        Parsira status tekst
+        # Ako nema slike, provjeri tekst
+        status_lower = status_text.lower()
         
-        Returns:
-            {
-                'status': 'available' | 'borrowed' | 'unknown',
-                'note': str,
-                'due_date': str or None
-            }
-        """
-        combined_text = (status_text + ' ' + note).lower()
-        
-        # Provjeri za različite statuse
-        if 'posuđeno' in combined_text or 'posudeno' in combined_text:
-            # Izvuci datum ako postoji
+        if 'posuđeno' in status_lower or 'posudeno' in status_lower:
             import re
-            date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', combined_text)
+            date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
             due_date = date_match.group(1) if date_match else None
             
             return {
+                'signature': signature,
                 'status': 'borrowed',
-                'note': note,
-                'due_date': due_date
+                'note': status_text,
+                'due_date': due_date,
+                'location_detail': location_cell
             }
         
-        elif 'provjerite' in combined_text:
+        elif 'provjerite' in status_lower:
             return {
+                'signature': signature,
                 'status': 'available',
-                'note': note,
-                'due_date': None
+                'note': 'Provjerite status - vjerojatno dostupna',
+                'due_date': None,
+                'location_detail': location_cell
             }
         
-        elif 'dostupno' in combined_text or 'available' in combined_text:
+        elif 'dostupno' in status_lower:
             return {
+                'signature': signature,
                 'status': 'available',
-                'note': note,
-                'due_date': None
+                'note': status_text,
+                'due_date': None,
+                'location_detail': location_cell
             }
         
         else:
+            # Nepoznat status
             return {
+                'signature': signature,
                 'status': 'unknown',
-                'note': status_text + ' ' + note,
-                'due_date': None
+                'note': status_text,
+                'due_date': None,
+                'location_detail': location_cell
             }
-    
-    def format_availability_message(self, availability: Dict) -> str:
-        """Formatira poruku o dostupnosti za chatbot"""
         
-        if 'error' in availability:
-            return f"Žao mi je, nisam uspio provjeriti dostupnost knjige. Pokušajte ponovno."
-        
-        title = availability['title']
-        locations = availability['locations']
-        
-        if not locations:
-            return f"📚 **{title}**\n\nNisam uspio pronaći informacije o dostupnosti. Provjerite katalog: https://katalog.halubajska-zora.hr"
-        
-        message = f"📚 **{title}**\n\n"
-        message += "📍 **Dostupnost po lokacijama:**\n\n"
-        
-        for loc in locations:
-            location_name = loc['location']
-            status = loc['status']
-            due_date = loc['due_date']
-            
-            if status == 'available':
-                message += f"✅ **{location_name}**\n"
-                message += f"   Status: Dostupna\n"
-                if loc['note']:
-                    message += f"   Napomena: {loc['note']}\n"
-            
-            elif status == 'borrowed':
-                message += f"❌ **{location_name}**\n"
-                message += f"   Status: Posuđena"
-                if due_date:
-                    message += f" do {due_date}"
-                message += "\n"
-                message += f"   💡 Možete rezervirati knjigu\n"
-            
-            else:
-                message += f"❓ **{location_name}**\n"
-                message += f"   Status: {loc['note']}\n"
-            
-            message += "\n"
-        
-        message += "🔗 Katalog: https://katalog.halubajska-zora.hr"
-        
-        return message
-
+    except Exception as e:
+        logger.error(f"Greška pri parsiranju reda: {e}")
+        return None
 
 # Test
 if __name__ == "__main__":
