@@ -1,9 +1,11 @@
 [build]
 appDir = "."
 
+[providers.python]
+version = "3.11"
+
 [phases.setup]
 nixPkgs = [
-  "python311",
   "gcc",
   "libxml2",
   "libxslt",
@@ -11,11 +13,5 @@ nixPkgs = [
   "pkg-config"
 ]
 
-[phases.install]
-cmds = [
-    'pip install --upgrade pip',
-    'pip install -r requirements.txt'
-]
-
-[start]
-cmd = 'uvicorn api.main:app --host 0.0.0.0 --port $PORT'
+[phases.start]
+cmd = "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
