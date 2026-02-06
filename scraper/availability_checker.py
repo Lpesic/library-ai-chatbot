@@ -129,7 +129,7 @@ class AvailabilityChecker:
                 continue
 
         # 2. Preskoči zaglavlja stupaca (Lokacija, Signatura, Status...)
-            if "Signatura" in row.get_text():
+            if "Signatura" in row.get_text() or "Ident" in row.get_text():
                 continue
 
         # 3. Obradi red s podacima o knjizi
@@ -137,23 +137,20 @@ class AvailabilityChecker:
         # Red s podacima obično ima 4-6 ćelija (ovisno o hidden-xs)
         if len(cells) >= 3 and not row.get('hidden'):
             # Provjeri ima li sliku ili 'posudbaLCP' gumb (to je tvoj status)
-            status_cell = cells[2]
-            if status_cell.find('img') or 'posudbaLCP' in str(status_cell):
-                status_info = self._parse_row_status(row)
+            status_info = self._parse_row_status(row)
+            
+            if status_info:
+                # Dodajemo lokaciju specifičnog odjela (npr. "281 Opći fond")
+                specific_dep = cells[0].get_text(strip=True)
+                full_location = f"{current_library} ({specific_dep})"
                 
-                if status_info:
-                    # Dodajemo lokaciju specifičnog odjela (npr. "281 Opći fond")
-                    specific_dep = cells[0].get_text(strip=True)
-                    full_location = f"{current_library} ({specific_dep})"
-                    
-                    locations.append({
-                        'location': full_location,
-                        'signature': status_info.get('signature', 'N/A'),
-                        'status': status_info.get('status', 'unknown'),
-                        'note': status_info.get('note', ''),
-                        'due_date': status_info.get('due_date', None)
-                    })
-                    
+                locations.append({
+                    'location': f"{current_library} ({specific_dep})",
+                    'signature': status_info.get('signature', 'N/A'),
+                    'status': status_info.get('status', 'unknown'),
+                    'note': status_info.get('note', ''),
+                    'due_date': status_info.get('due_date', None)
+                })                 
         return locations
     
     def _extract_location_name(self, text: str) -> str:
@@ -199,21 +196,26 @@ class AvailabilityChecker:
                 # Ako je posuđeno (posudjeno.png)
                 elif 'posudjeno' in img_src or 'posuđeno' in img_src:
                     import re
-                    date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_text)
-                    due_date = date_match.group(1) if date_match else "nepoznat datum"
+                    date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', status_cell.get_text())
+                    due_date = date_match.group(1) if date_match else None
                     return {
                         'signature': signature,
                         'status': 'borrowed',
-                        'note': f'Posuđeno do {due_date}',
+                        'note': f'Posuđeno do {due_date}'if due_date else 'Posuđeno',
                         'due_date': due_date
                     }
 
             # 3. FALLBACK (ako nema slike, provjeri tekst)
+            if 'provjerite status' in status_text.lower():
+                return {
+                    'signature': signature, 
+                    'status': 'unknown', 
+                    'note': 'Status dostupan na upit (Provjerite status)'
+                }   
             if 'dostupno' in status_text.lower():
                 return {
                     'signature': signature, 'status': 'available', 'note': 'Dostupno'
                 }
-                
             return None # Ako ništa ne odgovara, preskoči red
 
         except Exception as e:
@@ -225,7 +227,7 @@ if __name__ == "__main__":
     checker = AvailabilityChecker()
     
     # Test sa knjigom koja ima poznati ID
-    book_id = "418000451"  # Primjer iz tvog linka
+    book_id = "164001707"  # Primjer iz tvog linka
     
     print("=" * 70)
     print(f"PROVJERA DOSTUPNOSTI - Book ID: {book_id}")
