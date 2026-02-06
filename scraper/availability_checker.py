@@ -109,43 +109,51 @@ class AvailabilityChecker:
         return msg     
     
     def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
-        """Parsira lokacije i statuse iz HTML-a"""
         locations = []
+        # Pronađi glavnu tablicu s podacima
+        table = soup.find('table', class_='tblData')
         
-        # Pronađi sve div-ove koji sadrže lokacijske informacije
-        # Traži h3/h4 koji imaju naziv lokacije prije tablice
-        all_divs = soup.find_all('div')
-        
-        for div in all_divs:
-            # Traži h3 ili h4 sa lokacijom
-            location_header = div.find(['h3', 'h4'])
-            
-            if location_header:
-                location_text = location_header.get_text(strip=True)
+        if not table:
+            logger.warning("Tablica 'tblData' nije pronađena.")
+            return locations
+
+        current_library = "Središnja knjižnica"
+        rows = table.find_all('tr')
+
+        for row in rows:
+            # 1. Provjeri je li red naslov nove knjižnice (npr. Središnja knjižnica Marinići)
+            lib_header = row.find('td', class_='tdKnjiznicaNaziv')
+            if lib_header:
+            # Uzimamo tekst prije prvog zareza ili linka
+                current_library = lib_header.get_text(separator="|").split("|")[0].strip()
+                continue
+
+        # 2. Preskoči zaglavlja stupaca (Lokacija, Signatura, Status...)
+            if "Signatura" in row.get_text():
+                continue
+
+        # 3. Obradi red s podacima o knjizi
+        cells = row.find_all('td')
+        # Red s podacima obično ima 4-6 ćelija (ovisno o hidden-xs)
+        if len(cells) >= 3 and not row.get('hidden'):
+            # Provjeri ima li sliku ili 'posudbaLCP' gumb (to je tvoj status)
+            status_cell = cells[2]
+            if status_cell.find('img') or 'posudbaLCP' in str(status_cell):
+                status_info = self._parse_row_status(row)
                 
-                # Filtriraj samo prave lokacijske headinge
-                if any(keyword in location_text for keyword in ['Knjižnica', 'Središnja', 'Ogranak', 'tel:']):
-                    location_name = self._extract_location_name(location_text)
+                if status_info:
+                    # Dodajemo lokaciju specifičnog odjela (npr. "281 Opći fond")
+                    specific_dep = cells[0].get_text(strip=True)
+                    full_location = f"{current_library} ({specific_dep})"
                     
-                    # Pronađi tablicu nakon headera (u istom div-u ili sljedećem)
-                    table = div.find('table') or location_header.find_next('table')
+                    locations.append({
+                        'location': full_location,
+                        'signature': status_info.get('signature', 'N/A'),
+                        'status': status_info.get('status', 'unknown'),
+                        'note': status_info.get('note', ''),
+                        'due_date': status_info.get('due_date', None)
+                    })
                     
-                    if table:
-                        # Traži sve redove u tablici
-                        rows = table.find_all('tr')
-                        
-                        for row in rows[1:]:  # Preskoči header row
-                            status_info = self._parse_row_status(row)
-                            
-                            if status_info:
-                                locations.append({
-                                    'location': location_name,
-                                    'signature': status_info.get('signature', 'N/A'),
-                                    'status': status_info.get('status', 'unknown'),
-                                    'note': status_info.get('note', ''),
-                                    'due_date': status_info.get('due_date', None)
-                                })
-        
         return locations
     
     def _extract_location_name(self, text: str) -> str:
