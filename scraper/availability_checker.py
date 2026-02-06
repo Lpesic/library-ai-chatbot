@@ -76,18 +76,37 @@ class AvailabilityChecker:
                 'error': str(e)
             }
         
-def format_availability_message(self, availability: Dict) -> str:
+def format_availability_message(self, availability: dict) -> str:
+        """
+        Pretvara podatke o dostupnosti u lijepo formatiranu poruku za chat.
+        """
+        if "error" in availability:
+            return "Žao mi je, trenutno ne mogu provjeriti status u katalogu. Molim vas pokušajte kasnije."
+
         if not availability.get('locations'):
-            return f"Nažalost, trenutno ne mogu pronaći podatke o dostupnosti za knjigu: {availability.get('title', 'Nepoznato')}."
+            return f"Nažalost, trenutno ne mogu pronaći podatke o dostupnosti za knjigu: **{availability.get('title', 'Nepoznato')}**."
         
-        msg = f"🔍 **Dostupnost za: {availability['title']}**\n"
+        msg = f"🔍 **Status za: {availability['title']}**\n"
+        
         for loc in availability['locations']:
-            status_emoji = "✅" if loc['status'] == 'available' else "❌"
-            status_text = "Dostupno" if loc['status'] == 'available' else f"Posuđeno (rok: {loc['due_date']})"
+            # Logika za emojije na temelju statusa
+            status = loc.get('status', 'unknown')
+            if status == 'available':
+                status_emoji = "✅"
+                status_text = "Slobodno"
+            elif status == 'borrowed':
+                status_emoji = "❌"
+                due_date = loc.get('due_date')
+                status_text = f"Posuđeno (rok: {due_date})" if due_date else "Posuđeno"
+            else:
+                status_emoji = "❓"
+                status_text = "Nepoznato"
+
             msg += f"\n{status_emoji} **{loc['location']}**"
             msg += f"\n   Status: {status_text}"
-            msg += f"\n   Signatura: `{loc['signature']}`\n"
-        return msg        
+            msg += f"\n   Signatura: `{loc.get('signature', 'N/A')}`\n"
+            
+        return msg     
     
 def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
     """Parsira lokacije i statuse iz HTML-a"""
