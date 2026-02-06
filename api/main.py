@@ -127,7 +127,8 @@ async def chat(request: ChatRequest):
         return ChatResponse(response=response)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"SISTEMSKA GRESKA: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
 
 
 @app.post("/api/books/search")
