@@ -1,5 +1,15 @@
+[build]
+appDir = "."
+
 [phases.setup]
-nixPkgs = ['python311', 'pip']
+nixPkgs = [
+  "python311",
+  "gcc",
+  "libxml2",
+  "libxslt",
+  "sqlite",
+  "pkg-config"
+]
 
 [phases.install]
 cmds = [
