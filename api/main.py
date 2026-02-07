@@ -9,8 +9,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
+import logging
 import sys
 import os
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scraper.availability_checker import AvailabilityChecker
@@ -190,11 +193,14 @@ def generate_response(user_message: str) -> str:
     
     query_lower = user_message.lower()
     #0. PROVJERA DOSTUPNOSTI 
-    if any(word in query_lower for word in ['dostupn', 'posuden', 'je li', 'jel', 'ima li na', 'rezerv']):
+    if any(word in query_lower for word in ['dostupn', 'posuden', 'je li', 'jel', 'ima li na', 'rezerv', 'status']):
         # Pokušaj pronaći naziv knjige
         # Jednostavna logika - traži knjigu po ključnim riječima
         keywords = extract_keywords(user_message)
-        
+
+        logger.info(f"DOSTUPNOST: User query: {user_message}")
+        logger.info(f"DOSTUPNOST: Keywords: {keywords}")
+
         if keywords:
             # Pretraži bazu za ID knjige
             books = db.search_books(keywords[0], limit=1)

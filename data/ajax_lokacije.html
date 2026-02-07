@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="hr">
+ <head id="Head1" runat="server">
+  <link href="../Content/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+  <link href="../Content/bootstrap-icons.css" rel="stylesheet" type="text/css"/>
+  <link href="../include/style.css" rel="stylesheet" type="text/css"/>
+  <link href="../include/img/favicon.ico" rel="icon" type="image/x-icon"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <script src="../Scripts/jquery-3.7.1.min.js">
+  </script>
+  <script src="../Scripts/bootstrap.min.js">
+  </script>
+  <title>
+   Katalog
+  </title>
+ </head>
+ <body>
+  <div class="container">
+   <div class="row">
+    <div class="col-xs-12">
+    </div>
+   </div>
+   <div class="row">
+    <div class="col-xs-12">
+     <div class="alert alert-warning" role="alert">
+      Poštovani, pristup katalogu privremeno nije moguć zbog tehničkih problema. Stranica će biti automatski preusmjerena kada se problemi riješe.
+      <br/>
+      Zahvaljujemo na razumjevanju.
+     </div>
+    </div>
+   </div>
+  </div>
+ </body>
+ <script type="text/javascript">
+  $(document).ready(function () {
+        window.setTimeout(function () {
+                      window.location.href = "../default.aspx";
+        }, 2000)
+    });
+ </script>
+</html>
