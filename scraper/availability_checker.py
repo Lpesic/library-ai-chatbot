@@ -310,6 +310,8 @@ class AvailabilityChecker:
         try:
             import random
             
+            import time
+            time.sleep(1.5)
             # POST na istu stranicu
             ajax_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
             
