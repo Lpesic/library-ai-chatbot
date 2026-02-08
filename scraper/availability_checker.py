@@ -18,7 +18,17 @@ class AvailabilityChecker:
         self.base_url = "https://katalog.halubajska-zora.hr"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
         })
     
     def check_availability(self, book_id: str) -> Dict:
@@ -309,17 +319,26 @@ class AvailabilityChecker:
         """Dohvaća lokacije preko POST AJAX endpointa"""
         try:
             import random
+            import time
             
+            time.sleep(0.5) #simulacija ljudskog ponasanja
+
             # POST na istu stranicu
             ajax_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
             
             # Headers kao u browser requestu
             headers = {
                 'Accept': 'text/html, */*; q=0.01',
+                'Accept-Language': 'hr-HR,hr;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 'X-Requested-With': 'XMLHttpRequest',
                 'Origin': self.base_url,
-                'Referer': f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
+                'Referer': f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}",
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'DNT': '1'
             }
             
             # POST data (form-urlencoded)
