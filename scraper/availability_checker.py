@@ -310,8 +310,6 @@ class AvailabilityChecker:
         try:
             import random
             
-            import time
-            time.sleep(1.5)
             # POST na istu stranicu
             ajax_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
             
@@ -332,7 +330,6 @@ class AvailabilityChecker:
             }
             
             logger.info(f"POST AJAX: {ajax_url}")
-            logger.info(f"Data: {data}")
             
             response = self.session.post(
                 ajax_url,
@@ -345,6 +342,9 @@ class AvailabilityChecker:
             logger.info(f"AJAX response status: {response.status_code}")
             logger.info(f"Response length: {len(response.content)} bytes")
             
+            response_text = response.text
+            logger.info(f"Response text (prvih 500 chars): {response_text[:500]}")
+
             # Parsiraj HTML odgovor
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -356,14 +356,12 @@ class AvailabilityChecker:
                 logger.info("✓ POST response spremljen u data/ajax_post_response.html")
             
             # Debug text
-            text = soup.get_text()[:500]
-            logger.info(f"Response text preview: {text}")
-            
-            # Provjeri ima li error poruku
-            if 'privremeno nije moguć' in text or 'tehničkih problema' in text:
-                logger.warning("Katalog vraća error poruku")
-                return []
-            
+            all_tables = soup.find_all('table')
+            logger.info(f"AJAX: Pronađeno {len(all_tables)} tablica")
+
+            if len(all_tables) == 0:
+                logger.warning(f"Nema tablica! Response: {response_text[:1000]}")
+                      
             # Parsiraj lokacije
             locations = self._parse_ajax_locations(soup)
             
