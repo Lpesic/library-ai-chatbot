@@ -105,17 +105,27 @@ async def health_check():
 @app.get("/api/books/{book_id}/availability")
 async def check_book_availability(book_id: str):
     """
-    Provjeri dostupnost knjige u stvarnom vremenu
+    Provjeri dostupnost knjige u stvarnom vremenu koristeći asinkroni scraper.
     """
     try:
-        availability = availability_checker.check_availability(book_id)
-        logger.info(f"Availability result: {availability}")
-        return availability_checker.format_availability_message(availability)
+        # KLJUČNA PROMJENA: Dodan 'await' jer je funkcija postala async
+        availability = await availability_checker.check_availability(book_id)
+        
+        logger.info(f"Availability result for {book_id}: {availability}")
+        
+        # Formatiranje poruke
+        message = availability_checker.format_availability_message(availability)
+        
+        # Vraćamo JSON objekt, a ne samo običan string, 
+        # kako bi frontend (data.response) to znao pročitati
+        return {"response": message}
+
     except Exception as e:
         logger.error(f"AVAILABILITY ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return f"Greška pri provjeri dostupnosti: {str(e)}"
+        # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
+        return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -162,7 +172,7 @@ async def get_book(book_id: str):
     Dohvati detaljne informacije o knjizi
     """
     try:
-        book = await db.get_book_by_id(book_id)
+        book = db.get_book_by_id(book_id)
         
         if not book:
             raise HTTPException(status_code=404, detail="Knjiga nije pronađena")
