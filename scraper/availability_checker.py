@@ -38,6 +38,7 @@ class PlaywrightChecker:
         try:
             async with async_playwright() as p:
                 logger.info("Playwright pokrenut, palim browser...")
+
                 browser = await p.chromium.launch(
                 headless=True, 
                 args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
@@ -51,7 +52,7 @@ class PlaywrightChecker:
                 url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 logger.info(f"Playwright: učitavam {url}")
                 
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)             
+                await page.goto(url, wait_until="networkidle", timeout=60000)             
                 # Čekanje da se AJAX izvrši
                 await page.wait_for_timeout(2000)
                 
@@ -67,6 +68,14 @@ class PlaywrightChecker:
                 
                 logger.info(f"Dohvaćen naslov: {title}")
                 
+                try:
+                    # Čekamo do 10 sekundi da se tablica pojavi u DOM-u
+                    await page.wait_for_selector(".tblData", timeout=10000)
+                    logger.info("Tablica s podacima pronađena!")
+                except Exception:
+                    logger.warning("Tablica se nije pojavila na vrijeme, pokušavam uzeti content...")
+
+                await asyncio.sleep(2)
                 # Dohvati HTML
                 html = await page.content()
                 
