@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 import sys
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scraper.availability_checker import PlaywrightChecker
@@ -105,10 +108,14 @@ async def check_book_availability(book_id: str):
     Provjeri dostupnost knjige u stvarnom vremenu
     """
     try:
-        availability = await availability_checker.check_availability(book_id)
-        return availability
+        availability = availability_checker.check_availability(book_id)
+        logger.info(f"Availability result: {availability}")
+        return availability_checker.format_availability_message(availability)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"AVAILABILITY ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Greška pri provjeri dostupnosti: {str(e)}"
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
