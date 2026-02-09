@@ -56,16 +56,19 @@ class AvailabilityChecker:
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         
-        # Railway environment - koristi system chromium
-        if os.getenv('RAILWAY_ENVIRONMENT'):
-            chrome_options.binary_location = "/nix/store/*/bin/chromium"
-            service = Service("/nix/store/*/bin/chromedriver")
+        # Railway / Linux environment
+        if os.getenv('RAILWAY_ENVIRONMENT') or os.path.exists('/usr/bin/chromium'):
+            chrome_options.binary_location = "/usr/bin/chromium"
+            service = Service("/usr/bin/chromedriver")
+            logger.info("Koristim system chromium/chromedriver")
         else:
             # Lokalno - webdriver-manager
             from webdriver_manager.chrome import ChromeDriverManager
             service = Service(ChromeDriverManager().install())
+            logger.info("Koristim webdriver-manager")
         
         try:
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -73,6 +76,11 @@ class AvailabilityChecker:
         except Exception as e:
             logger.error(f"Selenium greška: {e}")
             self.use_selenium = False
+            # Inicijalizacija requests sessiona kao fallback
+            self.session = requests.Session()
+            self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+             })
     
     def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""

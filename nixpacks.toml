@@ -7,10 +7,9 @@ nixPkgs = [
   "libxml2",
   "libxslt",
   "sqlite",
-  "pkg-config",
-  "chromium",
-  "chromedriver"
+  "pkg-config"
 ]
+aptPkgs = ['chromium', 'chromium-driver']
 
 [phases.install]
 cmds = ["python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"]
