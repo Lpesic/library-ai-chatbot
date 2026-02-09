@@ -108,12 +108,8 @@ async def check_book_availability(book_id: str):
     Provjeri dostupnost knjige u stvarnom vremenu koristeći asinkroni scraper.
     """
     try:
-        # KLJUČNA PROMJENA: Dodan 'await' jer je funkcija postala async
         availability = await availability_checker.check_availability(book_id)
-        
         logger.info(f"Availability result for {book_id}: {availability}")
-        
-        # Formatiranje poruke
         message = availability_checker.format_availability_message(availability)
         
         # Vraćamo JSON objekt, a ne samo običan string, 
