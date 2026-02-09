@@ -135,12 +135,12 @@ async def chat(request: ChatRequest):
             raise HTTPException(status_code=400, detail="Poruka ne može biti prazna")
         
         # Generiraj odgovor (template-based za sada)
-        response = generate_response(user_message)
+        response = await generate_response(user_message)
         
         return ChatResponse(response=response)
         
     except Exception as e:
-        print(f"SISTEMSKA GRESKA: {str(e)}") 
+        logger.error(f"SISTEMSKA GRESKA: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
 
 
