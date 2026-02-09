@@ -11,22 +11,33 @@ from pydantic import BaseModel
 from typing import Optional, List
 import sys
 import os
-import logging
+import logging, traceback
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scraper.availability_checker import PlaywrightChecker
-availability_checker = PlaywrightChecker()
-
-# Dodaj parent directory u path
+#path setup
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.db_manager import DatabaseManager
-from chatbot.knowledge_base import KnowledgeBase
+try:
+    from scraper.availability_checker import PlaywrightChecker
+    from database.db_manager import DatabaseManager
+    from chatbot.knowledge_base import KnowledgeBase
+except ImportError as e:
+    logger.error(f"Greska pri importu modula: {e}")
+    # Fallback za lokalno testiranje ako struktura foldera varira
+    sys.path.append(os.getcwd())
+    from scraper.availability_checker import PlaywrightChecker
+    from database.db_manager import DatabaseManager
+    from chatbot.knowledge_base import KnowledgeBase
+
 import re
+
+# Dodaj parent directory u path
+
+sys.path.insert(0, parent_dir)
 
 # Inicijaliziraj FastAPI
 app = FastAPI(
@@ -35,7 +46,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS - omogućava frontends da pristupa API-ju
+# CORS - omogućava frontendima da pristupa API-ju
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # U production stavi specifične domene
@@ -45,16 +56,19 @@ app.add_middleware(
 )
 
 # Inicijaliziraj bazu i knowledge base
+availability_checker = PlaywrightChecker()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
 # Učitaj knowledge base ako je prazan
-if kb.get_count() == 0:
-    if os.path.exists('data/membership_info.json'):
-        kb.add_from_json('data/membership_info.json')
-    if os.path.exists('data/website_all_pages.json'):
-        kb.add_from_json('data/website_all_pages.json')
-
+try:
+    if kb.get_count() == 0:
+        if os.path.exists('data/membership_info.json'):
+            kb.add_from_json('data/membership_info.json')
+        if os.path.exists('data/website_all_pages.json'):
+            kb.add_from_json('data/website_all_pages.json')
+except Exception as e:
+    logger.warning(f"Nisam uspio inicijalizirati KB: {e}")
 
 # Pydantic modeli za request/response
 class ChatRequest(BaseModel):
@@ -75,130 +89,15 @@ class Book(BaseModel):
     isbn: Optional[str] = None
     publisher: Optional[str] = None
 
+# --- CHATBOT LOGIKA - POMOCNE FUNKCIJE
 
-# ENDPOINTS 
-@app.get("/api")
-async def api_root():
-    """API Root endpoint"""
-    return {
-        "message": "Library Chatbot API",
-        "version": "1.0.0",
-        "endpoints": {
-            "chat": "/api/chat",
-            "books": "/api/books/search",
-            "book_details": "/api/books/{book_id}",
-            "health": "/api/health",
-            "docs": "/docs"
-        }
-    }
+def extract_keywords(query: str) -> list:
+    """Izvlači ključne riječi"""
+    stop_words = ['knjiga', 'knjige', 'autor', 'o', 'na', 'u', 'i', 'za', 'mi']
+    words = re.findall(r'\w+', query.lower())
+    return [w for w in words if w not in stop_words and len(w) > 2][:3]
 
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "database": "connected",
-        "knowledge_base_docs": kb.get_count()
-    }
-
-@app.get("/api/books/{book_id}/availability")
-async def check_book_availability(book_id: str):
-    """
-    Provjeri dostupnost knjige u stvarnom vremenu koristeći asinkroni scraper.
-    """
-    try:
-        availability = await availability_checker.check_availability(book_id)
-        logger.info(f"Availability result for {book_id}: {availability}")
-        message = availability_checker.format_availability_message(availability)
-        
-        # Vraćamo JSON objekt, a ne samo običan string, 
-        # kako bi frontend (data.response) to znao pročitati
-        return {"response": message}
-
-    except Exception as e:
-        logger.error(f"AVAILABILITY ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
-        return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
-
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """
-    Chat endpoint - prima poruku korisnika i vraća odgovor
-    """
-    try:
-        user_message = request.message.strip()
-        
-        if not user_message:
-            raise HTTPException(status_code=400, detail="Poruka ne može biti prazna")
-        
-        # Generiraj odgovor (template-based za sada)
-        response = await generate_response(user_message)
-        
-        return ChatResponse(response=response)
-        
-    except Exception as e:
-        logger.error(f"SISTEMSKA GRESKA: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
-
-
-@app.post("/api/books/search")
-async def search_books(request: BookSearchRequest):
-    """
-    Pretraži knjige u katalogu
-    """
-    try:
-        books = db.search_books(request.query, limit=request.limit)
-        
-        return {
-            "query": request.query,
-            "count": len(books),
-            "books": books
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/books/{book_id}")
-async def get_book(book_id: str):
-    """
-    Dohvati detaljne informacije o knjizi
-    """
-    try:
-        book = db.get_book_by_id(book_id)
-        
-        if not book:
-            raise HTTPException(status_code=404, detail="Knjiga nije pronađena")
-        
-        return book
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/books/popular")
-async def get_popular_books(limit: int = 10):
-    """
-    Dohvati popularne knjige
-    """
-    try:
-        books = db.get_all_books(limit=limit)
-        return {
-            "count": len(books),
-            "books": books
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# CHATBOT LOGIC
-
-def generate_response(user_message: str) -> str:
+async def generate_response(user_message: str) -> str:
     """Generira odgovor na korisničku poruku (template-based)"""
     
     query_lower = user_message.lower()
@@ -216,9 +115,13 @@ def generate_response(user_message: str) -> str:
                 book = books[0]
                 book_id = book['id']
                 
-                # Provjeri dostupnost
-                availability = availability_checker.check_availability(book_id)
-                return availability_checker.format_availability_message(availability)
+                try:
+                    # Provjeri dostupnost
+                    availability = await availability_checker.check_availability(book_id)
+                    return availability_checker.format_availability_message(availability)
+                except Exception as e:
+                    logger.error(f"Greška pri provjeri dostupnosti: {e}")
+                    return "Trenutno ne mogu provjeriti status knjige u katalogu."
             else:
                 return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
         else:
@@ -342,11 +245,126 @@ def generate_response(user_message: str) -> str:
             "Što vas zanima?")
 
 
-def extract_keywords(query: str) -> list:
-    """Izvlači ključne riječi"""
-    stop_words = ['knjiga', 'knjige', 'autor', 'o', 'na', 'u', 'i', 'za', 'mi']
-    words = re.findall(r'\w+', query.lower())
-    return [w for w in words if w not in stop_words and len(w) > 2][:3]
+# ENDPOINTS 
+@app.get("/api")
+async def api_root():
+    """API Root endpoint"""
+    return {
+        "message": "Library Chatbot API",
+        "version": "1.0.0",
+        "endpoints": {
+            "chat": "/api/chat",
+            "books": "/api/books/search",
+            "book_details": "/api/books/{book_id}",
+            "health": "/api/health",
+            "docs": "/docs"
+        }
+    }
+
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "database": "connected",
+        "knowledge_base_docs": kb.get_count()
+    }
+
+@app.get("/api/books/{book_id}/availability")
+async def check_book_availability(book_id: str):
+    """
+    Provjeri dostupnost knjige u stvarnom vremenu koristeći asinkroni scraper.
+    """
+    try:
+        availability = await availability_checker.check_availability(book_id)
+        logger.info(f"Availability result for {book_id}: {availability}")
+        message = availability_checker.format_availability_message(availability)
+        
+        # Vraćamo JSON objekt, a ne samo običan string, 
+        # kako bi frontend (data.response) to znao pročitati
+        return {"response": message}
+
+    except Exception as e:
+        logger.error(f"AVAILABILITY ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
+        return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """
+    Chat endpoint - prima poruku korisnika i vraća odgovor
+    """
+    try:
+        user_message = request.message.strip()
+        
+        if not user_message:
+            raise HTTPException(status_code=400, detail="Poruka ne može biti prazna")
+        
+        # Generiraj odgovor (template-based za sada)
+        response = await generate_response(user_message)
+        
+        return ChatResponse(response=response)
+        
+    except Exception as e:
+        logger.error(f"SISTEMSKA GRESKA: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
+
+
+# --- ENDPOINTS
+
+@app.post("/api/books/search")
+async def search_books(request: BookSearchRequest):
+    """
+    Pretraži knjige u katalogu
+    """
+    try:
+        books = db.search_books(request.query, limit=request.limit)
+        
+        return {
+            "query": request.query,
+            "count": len(books),
+            "books": books
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/books/{book_id}")
+async def get_book(book_id: str):
+    """
+    Dohvati detaljne informacije o knjizi
+    """
+    try:
+        book = db.get_book_by_id(book_id)
+        
+        if not book:
+            raise HTTPException(status_code=404, detail="Knjiga nije pronađena")
+        
+        return book
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/books/popular")
+async def get_popular_books(limit: int = 10):
+    """
+    Dohvati popularne knjige
+    """
+    try:
+        books = db.get_all_books(limit=limit)
+        return {
+            "count": len(books),
+            "books": books
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # STARTUP
@@ -403,3 +421,4 @@ if __name__ == "__main__":
     import os
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+

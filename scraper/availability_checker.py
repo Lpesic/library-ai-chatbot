@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
 import asyncio
+import re
 
 try:
     from playwright.async_api import async_playwright
@@ -17,53 +18,60 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class PlaywrightChecker:
     """Provjera dostupnosti sa Playwright"""
     
     def __init__(self):
         self.base_url = "https://katalog.halubajska-zora.hr"
         self.use_playwright = PLAYWRIGHT_AVAILABLE
-        
+        if not PLAYWRIGHT_AVAILABLE:
+            logger.warning("⚠️ Playwright biblioteka nije instalirana!")
         if not self.use_playwright:
             logger.warning("Playwright nije dostupan")
     
     async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
-        logger.info("--- START CHECK_AVAILABILITY ---")
+        logger.info(f"--- START CHECK_AVAILABILITY za ID: {book_id} ---")
+
+        if not PLAYWRIGHT_AVAILABLE:
+            return {"error": "Playwright nije instaliran na serveru."}
         try:
             async with async_playwright() as p:
                 logger.info("Playwright pokrenut, palim browser...")
                 browser = await p.chromium.launch(
                 headless=True, 
-                args=["--no-sandbox", "--disable-setuid-sandbox"]
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
                 )
                 context = await browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 )
                 page = await context.new_page()
                 
-                # Idi na stranicu
+                # URL
                 url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 logger.info(f"Playwright: učitavam {url}")
                 
-                await page.goto(url, wait_until="networkidle", timeout=30000)             
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)             
                 # Čekanje da se AJAX izvrši
-                await page.wait_for_timeout(3000)
+                await page.wait_for_timeout(2000)
                 
                 # Dohvati naslov
+                title = "Nepoznato"
                 try:
-                    title_locator = page.locator("#divNaslov span.hidden")
-                    title = await title_locator.text_content()
-                except:
-                    title = "Nepoznato"
+                    # Pokušaj uhvatiti naslov, ako ne uspije, nije kritično
+                    if await page.locator("#divNaslov").count() > 0:
+                        title = await page.locator("#divNaslov").text_content()
+                        title = title.strip()
+                except Exception as e:
+                    logger.warning(f"Nisam uspio dohvatiti naslov: {e}")
                 
-                logger.info(f"Naslov: {title}")
+                logger.info(f"Dohvaćen naslov: {title}")
                 
                 # Dohvati HTML
                 html = await page.content()
                 
                 await browser.close()
+                browser = None
                 
                 # Parsiraj
                 soup = BeautifulSoup(html, 'html.parser')
@@ -79,6 +87,10 @@ class PlaywrightChecker:
             logger.error(f"Playwright greška: {e}")
             import traceback
             traceback.print_exc()
+
+            if browser:
+                await browser.close()
+
             return {
                 'book_id': book_id,
                 'title': 'Greška',
@@ -98,20 +110,22 @@ class PlaywrightChecker:
                 table = all_tables[0]
         
         if not table:
-            logger.warning("Nema tablica")
+            logger.warning("Nema tablice s podacima u HTML-u")
             return locations
         
         rows = table.find_all('tr')
-        current_location = None
+        current_location = "Glavna zbirka"
         
         for row in rows:
-            cells = row.find_all('td')
-            
+            cells = row.find_all('td')     
             if not cells:
                 continue
             
             first_cell = cells[0].get_text(strip=True)
             
+            if first_cell == 'Lokacija':
+                continue
+
             # Lokacija
             if 'tel:' in first_cell:
                 import re
@@ -130,6 +144,10 @@ class PlaywrightChecker:
                 signature = cells[1].get_text(strip=True)
                 status_text = cells[2].get_text(strip=True)
                 
+                #Ako je red prazan, preskoči
+                if not signature and not status_text:
+                    continue
+
                 # Parse status
                 status_info = self._parse_status(status_text, signature)
                 
@@ -180,6 +198,9 @@ class PlaywrightChecker:
     
     def format_availability_message(self, availability: dict) -> str:
         """Format message"""
+        if 'error' in availability:
+            return f"⚠️ Došlo je do greške pri provjeri: {availability['error']}"
+        
         book_title = availability.get('title', 'Nepoznato')
         book_id = availability.get('book_id')
         
