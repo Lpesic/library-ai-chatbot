@@ -9,9 +9,8 @@ nixPkgs = [
   "sqlite",
   "pkg-config"
 ]
-aptPkgs = ['chromium', 'chromium-driver']
+aptPkgs = ["chromium", "chromium-driver"]
 
-[phases.install]
 [phases.install]
 cmds = [
   "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt && /opt/venv/bin/python -m playwright install chromium && /opt/venv/bin/python -m playwright install-deps chromium"
