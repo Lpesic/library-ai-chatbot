@@ -44,7 +44,8 @@ class PlaywrightChecker:
                 args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
                 )
                 context = await browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                viewport={'width': 1280, 'height': 800}
                 )
                 page = await context.new_page()
                 
@@ -52,39 +53,42 @@ class PlaywrightChecker:
                 url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 logger.info(f"Playwright: učitavam {url}")
                 
-                await page.goto(url, wait_until="networkidle", timeout=60000)             
-                # Čekanje da se AJAX izvrši
-                await page.wait_for_timeout(2000)
+                await page.goto(url, wait_until="load", timeout=60000)
+                await page.mouse.wheel(0, 500)
+                logger.info("Čekam 3 sekunde za AJAX load...")
+                await asyncio.sleep(3)             
                 
                 # Dohvati naslov
                 title = "Nepoznato"
                 try:
                     # Pokušaj uhvatiti naslov, ako ne uspije, nije kritično
                     if await page.locator("#divNaslov").count() > 0:
-                        title = await page.locator("#divNaslov").text_content()
-                        title = title.strip()
+                        raw_title = await page.locator("#divNaslov").text_content()
+                        if raw_title:
+                            title = raw_title.split("/")[0].strip()
+                        else:
+                            title = "Nepoznato"
                 except Exception as e:
                     logger.warning(f"Nisam uspio dohvatiti naslov: {e}")
                 
-                logger.info(f"Dohvaćen naslov: {title}")
+                logger.info(f"Očišćen naslov: {title}")
                 
                 try:
                     # Čekamo do 10 sekundi da se tablica pojavi u DOM-u
-                    await page.wait_for_selector(".tblData", timeout=10000)
+                    await page.wait_for_selector(".tblData tr", timeout=10000)
                     logger.info("Tablica s podacima pronađena!")
                 except Exception:
                     logger.warning("Tablica se nije pojavila na vrijeme, pokušavam uzeti content...")
 
-                await asyncio.sleep(2)
                 # Dohvati HTML
-                html = await page.content()
-                
+                html = await page.content()    
                 await browser.close()
                 browser = None
                 
                 # Parsiraj
                 soup = BeautifulSoup(html, 'html.parser')
                 locations = self._parse_locations(soup)
+                logger.info(f"Broj pronađenih lokacija: {len(locations)}")
                 
                 return {
                     'book_id': book_id,

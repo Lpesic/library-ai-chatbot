@@ -10,8 +10,6 @@ nixPkgs = [
   "pkg-config"
 ]
 aptPkgs = [
-  "chromium", 
-  "chromium-driver", 
   "libnss3", 
   "libasound2t64", 
   "libgbm1"
