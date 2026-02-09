@@ -467,6 +467,8 @@
       const notificationBadge = document.getElementById("notificationBadge");
 
       let isOpen = false;
+      let messageHistory = [];
+      let historyIndex = -1;
 
       function toggleChat() {
         isOpen = !isOpen;
@@ -535,7 +537,7 @@
         showTypingIndicator();
 
         try {
-          const response = fetch(`${API_URL}/api/chat`, {
+          const response = await fetch(`${API_URL}/api/chat`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -543,8 +545,10 @@
             body: JSON.stringify({ message: message }),
           });
 
+          if (!response.ok) {
+            throw new Error(`Server vratio status: ${response.status}`);
+          }
           const data = await response.json();
-
           hideTypingIndicator();
           addMessage(data.response);
         } catch (error) {
@@ -569,7 +573,7 @@
         }
       }
 
-      // Show welcome notification after 3 seconds
+      // Show welcome notification poslije 3 seconds
       setTimeout(() => {
         if (!isOpen) {
           notificationBadge.classList.add("active");
