@@ -1,17 +1,18 @@
 """
-Availability Checker sa Playwright - radi na Railway-u
+Availability Checker sa Playwright - SYNC
 """
 
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
-from playwright.async_api import async_playwright
+import asyncio
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.async_api import async_playwright
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
+    logging.warning("Playwright nije instaliran")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,19 +30,10 @@ class PlaywrightChecker:
     
     async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
-        
-        if not self.use_playwright:
-            return {
-                'book_id': book_id,
-                'title': 'Greška',
-                'locations': [],
-                'error': 'Playwright nije dostupan'
-            }
-        
         try:
-            async with sync_playwright() as p:
+            async with async_playwright() as p:
                 # Pokreni browser
-                browser = p.chromium.launch(headless=True)
+                browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page(
                     user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 )
@@ -57,7 +49,7 @@ class PlaywrightChecker:
                 # Dohvati naslov
                 try:
                     title_locator = page.locator("#divNaslov span.hidden")
-                    title = page.locator("#divNaslov span.hidden").text_content()
+                    title = await title_locator.text_content()
                 except:
                     title = "Nepoznato"
                 
@@ -66,7 +58,7 @@ class PlaywrightChecker:
                 # Dohvati HTML
                 html = await page.content()
                 
-                browser.close()
+                await browser.close()
                 
                 # Parsiraj
                 soup = BeautifulSoup(html, 'html.parser')
@@ -74,7 +66,7 @@ class PlaywrightChecker:
                 
                 return {
                     'book_id': book_id,
-                    'title': title,
+                    'title': title.strip() if title else "Nepoznato",
                     'locations': locations
                 }
         
@@ -212,36 +204,23 @@ class PlaywrightChecker:
         
         return msg
 
-
 # Test
-if __name__ == "__main__":
+async def main():
+    print("=" * 70)
+    print("PLAYWRIGHT ASYNC TEST")
+    print("=" * 70)
+    
+    checker = PlaywrightChecker()
+    test_id = "428003512"
+    
+    # Moramo koristiti 'await'!
+    result = await checker.check_availability(test_id)
+    
     import json
-    
-    print("=" * 70)
-    print("PLAYWRIGHT AVAILABILITY CHECKER - TEST")
-    print("=" * 70)
-    
-    try:
-        checker = PlaywrightChecker()
-        
-        test_id = "428003512"
-        print(f"\n📚 Test book ID: {test_id}\n")
-        
-        result = checker.check_availability(test_id)
-        
-        print("\n" + "=" * 70)
-        print("RAW DATA:")
-        print("=" * 70)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        
-        print("\n" + "=" * 70)
-        print("FORMATIRANA PORUKA:")
-        print("=" * 70)
-        print(checker.format_availability_message(result))
-        
-        print("\n✓ Done")
-        
-    except Exception as e:
-        print(f"\n❌ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    print("\nRAW DATA:")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print("\nPORUKA:")
+    print(checker.format_availability_message(result))
+
+if __name__ == "__main__":
+    asyncio.run(main())
