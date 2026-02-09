@@ -9,15 +9,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
-import logging
 import sys
 import os
 
-logger = logging.getLogger(__name__)
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scraper.availability_checker import AvailabilityChecker
-availability_checker = AvailabilityChecker()
+from scraper.availability_checker import PlaywrightChecker
+availability_checker = PlaywrightChecker()
 
 # Dodaj parent directory u path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -198,12 +195,9 @@ def generate_response(user_message: str) -> str:
         # Jednostavna logika - traži knjigu po ključnim riječima
         keywords = extract_keywords(user_message)
 
-        logger.info(f"DOSTUPNOST: User query: {user_message}")
-        logger.info(f"DOSTUPNOST: Keywords: {keywords}")
-
         if keywords:
             # Pretraži bazu za ID knjige
-            books = db.search_books(keywords[0], limit=1)
+            books = db.search_books(keywords[0], limit=3)
             
             if books:
                 book = books[0]
