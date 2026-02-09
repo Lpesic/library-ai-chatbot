@@ -5,6 +5,7 @@ Availability Checker sa Playwright - radi na Railway-u
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
+from playwright.async_api import async_playwright
 
 try:
     from playwright.sync_api import sync_playwright
@@ -26,7 +27,7 @@ class PlaywrightChecker:
         if not self.use_playwright:
             logger.warning("Playwright nije dostupan")
     
-    def check_availability(self, book_id: str) -> Dict:
+    async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
         
         if not self.use_playwright:
@@ -38,10 +39,10 @@ class PlaywrightChecker:
             }
         
         try:
-            with sync_playwright() as p:
+            async with sync_playwright() as p:
                 # Pokreni browser
                 browser = p.chromium.launch(headless=True)
-                page = browser.new_page(
+                page = await browser.new_page(
                     user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 )
                 
@@ -49,13 +50,13 @@ class PlaywrightChecker:
                 url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 logger.info(f"Playwright: učitavam {url}")
                 
-                page.goto(url, wait_until="networkidle", timeout=30000)
-                
-                # Pričekaj malo da se AJAX izvrši
-                page.wait_for_timeout(3000)
+                await page.goto(url, wait_until="networkidle", timeout=30000)             
+                # Čekanje da se AJAX izvrši
+                await page.wait_for_timeout(3000)
                 
                 # Dohvati naslov
                 try:
+                    title_locator = page.locator("#divNaslov span.hidden")
                     title = page.locator("#divNaslov span.hidden").text_content()
                 except:
                     title = "Nepoznato"
@@ -63,7 +64,7 @@ class PlaywrightChecker:
                 logger.info(f"Naslov: {title}")
                 
                 # Dohvati HTML
-                html = page.content()
+                html = await page.content()
                 
                 browser.close()
                 

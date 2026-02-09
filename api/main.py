@@ -105,7 +105,7 @@ async def check_book_availability(book_id: str):
     Provjeri dostupnost knjige u stvarnom vremenu
     """
     try:
-        availability = availability_checker.check_availability(book_id)
+        availability = await availability_checker.check_availability(book_id)
         return availability
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -155,7 +155,7 @@ async def get_book(book_id: str):
     Dohvati detaljne informacije o knjizi
     """
     try:
-        book = db.get_book_by_id(book_id)
+        book = await db.get_book_by_id(book_id)
         
         if not book:
             raise HTTPException(status_code=404, detail="Knjiga nije pronađena")
