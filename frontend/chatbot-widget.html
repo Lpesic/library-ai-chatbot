@@ -451,7 +451,7 @@
           type="text"
           id="chatInput"
           placeholder="Upiši poruku..."
-          onkeypress="handleKeyPress(event)"
+          onkeydown="handleKeyPress(event)"
         />
         <button id="sendBtn" onclick="sendMessage()">Pošalji</button>
       </div>
@@ -528,6 +528,9 @@
 
         if (!message) return;
 
+        messageHistory.push(message);
+        historyIndex = -1;
+
         addMessage(message, true);
         chatInput.value = "";
 
@@ -570,6 +573,34 @@
       function handleKeyPress(event) {
         if (event.key === "Enter") {
           sendMessage();
+        } else if (event.key === "ArrowUp") {
+          // Ako ima poruka u povijesti
+          if (messageHistory.length > 0) {
+            if (historyIndex === -1) {
+              historyIndex = messageHistory.length - 1;
+            } else if (historyIndex > 0) {
+              historyIndex--;
+            }
+            chatInput.value = messageHistory[historyIndex];
+            // Postavi kursor na kraj teksta
+            setTimeout(() => {
+              chatInput.selectionStart = chatInput.selectionEnd =
+                chatInput.value.length;
+            }, 0);
+
+            event.preventDefault();
+          }
+        } else if (event.key === "ArrowDown") {
+          if (historyIndex !== -1) {
+            if (historyIndex < messageHistory.length - 1) {
+              historyIndex++;
+              chatInput.value = messageHistory[historyIndex];
+            } else {
+              historyIndex = -1;
+              chatInput.value = "";
+            }
+            event.preventDefault();
+          }
         }
       }
 
