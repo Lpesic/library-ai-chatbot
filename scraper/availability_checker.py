@@ -5,7 +5,7 @@ import httpx
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
-import asyncio
+import asyncio, random
 import re
 
 try:
@@ -49,7 +49,7 @@ class PlaywrightChecker:
                 data = {
                     "action": "getLokacije",
                     "bibliografskiZapisId": book_id,
-                    "random": "0.123456789" # Može biti bilo što
+                    "random": str(random.random())
                 }
                 logger.info(f"Šaljem API zahtjev za lokacije...")
                 api_resp = await client.post(api_url, data=data, headers=self.headers, timeout=20.0)
@@ -72,9 +72,17 @@ class PlaywrightChecker:
     def _parse_locations_html(self, html_content: str) -> List[Dict]:
         """Parsira lokacije"""
         locations = []
+        #DEBUG
+        logger.info(f"API Response snippet: {html_content[:300]}")
+        
         soup = BeautifulSoup(html_content, 'html.parser')
         table = soup.find('table', class_='tblData')
-        
+
+        rows = soup.find_all('tr')
+        if not rows:
+            logger.warning("Nema <tr> elemenata, pokušavam alternativni parsing...")
+            # Ponekad ASP.NET vrati samo sadržaj bez <table> taga
+
         if not table:
             all_tables = soup.find_all('table')
             if all_tables:
@@ -84,12 +92,11 @@ class PlaywrightChecker:
             logger.warning("Nema tablice s podacima u HTML-u")
             return locations
         
-        rows = table.find_all('tr')
         current_location = "Glavna zbirka"
         
         for row in rows:
-            cells = row.find_all('td')     
-            if not cells:
+            cells = row.find_all(['td', 'th'])  
+            if len(cells) < 2: 
                 continue
             
             first_cell = cells[0].get_text(strip=True)
