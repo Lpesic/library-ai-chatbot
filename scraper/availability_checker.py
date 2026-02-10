@@ -1,7 +1,7 @@
 """
 Availability Checker sa Playwright - SYNC
 """
-
+import httpx
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
@@ -23,107 +23,56 @@ class PlaywrightChecker:
     
     def __init__(self):
         self.base_url = "https://katalog.halubajska-zora.hr"
-        self.use_playwright = PLAYWRIGHT_AVAILABLE
-        if not PLAYWRIGHT_AVAILABLE:
-            logger.warning("⚠️ Playwright biblioteka nije instalirana!")
-        if not self.use_playwright:
-            logger.warning("Playwright nije dostupan")
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Origin": self.base_url,
+            "Referer": self.base_url + "/pagesResults/bibliografskiZapis.aspx"
+        }
     
     async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
         logger.info(f"--- START CHECK_AVAILABILITY za ID: {book_id} ---")
 
-        if not PLAYWRIGHT_AVAILABLE:
-            return {"error": "Playwright nije instaliran na serveru."}
         try:
-            async with async_playwright() as p:
-                logger.info("Playwright pokrenut, palim browser...")
+            async with httpx.AsyncClient() as client:
+                main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
+                resp = await client.get(main_url, headers=self.headers, timeout=20.0)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    title_elem = soup.select_one("#divNaslov")
+                    if title_elem:
+                        title = title_elem.get_text(strip=True).split('/')[0].strip()
 
-                browser = await p.chromium.launch(
-                headless=True, 
-                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled", "--single-process"]
-                )
-                context = await browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                viewport={'width': 1280, 'height': 800}
-                )
-                page = await context.new_page()
-                
-                # URL
-                url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
-                logger.info(f"Playwright: učitavam {url}")
-                
-                await page.set_extra_http_headers({
-                    "Accept-Language": "hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7",
-                    "Cache-Control": "no-cache",
-                    "Pragma": "no-cache"
-                })
+                api_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
+                data = {
+                    "action": "getLokacije",
+                    "bibliografskiZapisId": book_id,
+                    "random": "0.123456789" # Može biti bilo što
+                }
+                logger.info(f"Šaljem API zahtjev za lokacije...")
+                api_resp = await client.post(api_url, data=data, headers=self.headers, timeout=20.0)
 
-                response = await page.goto(url, wait_until="networkidle", timeout=60000)
-                logger.info(f"Response status: {response.status if response else 'No response'}")
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                logger.info("Čekam 5 sekundi za AJAX load...")
-                await asyncio.sleep(5) 
-                await page.mouse.move(100, 100)
-                await page.mouse.click(200, 200)            
-                
-                # Dohvati naslov
-                title = "Nepoznato"
-                try:
-                    # Pokušaj uhvatiti naslov, ako ne uspije, nije kritično
-                    if await page.locator("#divNaslov").count() > 0:
-                        raw_title = await page.locator("#divNaslov").text_content()
-                        if raw_title:
-                            title = raw_title.split("/")[0].strip()
-                        else:
-                            title = "Nepoznato"
-                except Exception as e:
-                    logger.warning(f"Nisam uspio dohvatiti naslov: {e}")
-                
-                logger.info(f"Očišćen naslov: {title}")
-                
-                try:
-                    # Čekamo do 10 sekundi da se tablica pojavi u DOM-u
-                    await page.wait_for_selector(".tblData tr", timeout=10000)
-                    logger.info("Tablica s podacima pronađena!")
-                except Exception:
-                    logger.warning("Tablica se nije pojavila na vrijeme, pokušavam uzeti content...")
+                locations = []
+                if api_resp.status_code == 200:
+                    # API vraća čisti HTML tablice
+                    locations = self._parse_locations_html(api_resp.text)
 
-                # Dohvati HTML
-                html = await page.content()    
-                await browser.close()
-                browser = None
-                
-                # Parsiraj
-                soup = BeautifulSoup(html, 'html.parser')
-                locations = self._parse_locations(soup)
-                logger.info(f"Broj pronađenih lokacija: {len(locations)}")
-                
                 return {
                     'book_id': book_id,
-                    'title': title.strip() if title else "Nepoznato",
+                    'title': title,
                     'locations': locations
                 }
-        
+                
         except Exception as e:
-            logger.error(f"Playwright greška: {e}")
-            import traceback
-            traceback.print_exc()
-
-            if browser:
-                await browser.close()
-
-            return {
-                'book_id': book_id,
-                'title': 'Greška',
-                'locations': [],
-                'error': str(e)
-            }
+            logger.error(f"Greška pri provjeri: {str(e)}")
+            return {'book_id': book_id, 'title': 'Greška', 'locations': [], 'error': str(e)}
     
-    def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
+    def _parse_locations_html(self, html_content: str) -> List[Dict]:
         """Parsira lokacije"""
         locations = []
-        
+        soup = BeautifulSoup(html_content, 'html.parser')
         table = soup.find('table', class_='tblData')
         
         if not table:
