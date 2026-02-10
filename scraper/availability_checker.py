@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
 import asyncio, random
-import re
 
 try:
     from playwright.async_api import async_playwright
@@ -36,7 +35,7 @@ class PlaywrightChecker:
         logger.info(f"--- START CHECK_AVAILABILITY za ID: {book_id} ---")
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 resp = await client.get(main_url, headers=self.headers, timeout=20.0)
                 if resp.status_code == 200:
@@ -53,7 +52,8 @@ class PlaywrightChecker:
                 }
                 logger.info(f"Šaljem API zahtjev za lokacije...")
                 api_resp = await client.post(api_url, data=data, headers=self.headers, timeout=20.0)
-
+                logger.info(f"API Response snippet: {api_resp.text[:100]}")
+                
                 locations = []
                 if api_resp.status_code == 200:
                     # API vraća čisti HTML tablice
