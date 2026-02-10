@@ -33,27 +33,41 @@ class PlaywrightChecker:
     async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
         logger.info(f"--- START CHECK_AVAILABILITY za ID: {book_id} ---")
+        main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
+        api_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
 
-        try:
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            try: 
+                initial_headers = self.headers.copy()
+                initial_headers.pop("X-Requested-With", None)
+
                 resp = await client.get(main_url, headers=self.headers, timeout=20.0)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     title_elem = soup.select_one("#divNaslov")
                     if title_elem:
                         title = title_elem.get_text(strip=True).split('/')[0].strip()
+                
+                ajax_headers = self.headers.copy()
+                ajax_headers["Referer"] = main_url
+                ajax_headers["X-Requested-With"] = "XMLHttpRequest"
 
-                api_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
                 data = {
                     "action": "getLokacije",
                     "bibliografskiZapisId": book_id,
                     "random": str(random.random())
                 }
-                logger.info(f"Šaljem API zahtjev za lokacije...")
-                api_resp = await client.post(api_url, data=data, headers=self.headers, timeout=20.0)
-                logger.info(f"API Response snippet: {api_resp.text[:100]}")
+                logger.info(f"Šaljem API zahtjev (Referer: {main_url})")
+                api_resp = await client.post(api_url, data=data, headers=ajax_headers, timeout=20.0)
+                #DEBUG
+                raw_html = api_resp.text.strip()
+                logger.info(f"API Response (prvih 100): {raw_html[:100]}")
                 
+                if not raw_html or raw_html == "<br/>":
+                    logger.error("🛑 Server je opet vratio prazno. Pokušavam zadnji trik...")
+                    client.cookies.set("LastViewed", book_id, domain="katalog.halubajska-zora.hr")
+                    api_resp = await client.post(api_url, data=data, headers=ajax_headers)
+
                 locations = []
                 if api_resp.status_code == 200:
                     # API vraća čisti HTML tablice
@@ -65,9 +79,9 @@ class PlaywrightChecker:
                     'locations': locations
                 }
                 
-        except Exception as e:
-            logger.error(f"Greška pri provjeri: {str(e)}")
-            return {'book_id': book_id, 'title': 'Greška', 'locations': [], 'error': str(e)}
+            except Exception as e:
+                logger.error(f"Greška pri provjeri: {str(e)}")
+                return {'book_id': book_id, 'title': 'Greška', 'locations': []}
     
     def _parse_locations_html(self, html_content: str) -> List[Dict]:
         """Parsira lokacije"""
