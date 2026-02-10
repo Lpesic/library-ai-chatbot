@@ -41,7 +41,7 @@ class PlaywrightChecker:
 
                 browser = await p.chromium.launch(
                 headless=True, 
-                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled", "--single-process"]
                 )
                 context = await browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -53,10 +53,19 @@ class PlaywrightChecker:
                 url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
                 logger.info(f"Playwright: učitavam {url}")
                 
-                await page.goto(url, wait_until="load", timeout=60000)
-                await page.mouse.wheel(0, 500)
-                logger.info("Čekam 3 sekunde za AJAX load...")
-                await asyncio.sleep(3)             
+                await page.set_extra_http_headers({
+                    "Accept-Language": "hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache"
+                })
+
+                response = await page.goto(url, wait_until="networkidle", timeout=60000)
+                logger.info(f"Response status: {response.status if response else 'No response'}")
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                logger.info("Čekam 5 sekundi za AJAX load...")
+                await asyncio.sleep(5) 
+                await page.mouse.move(100, 100)
+                await page.mouse.click(200, 200)            
                 
                 # Dohvati naslov
                 title = "Nepoznato"
