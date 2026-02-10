@@ -1,122 +1,141 @@
 """
-Availability Checker sa Playwright - SYNC
+Availability Checker HTTPX ScraperAPI
 """
 import httpx
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, List
-import asyncio, random
+import asyncio
+import os
+from dotenv import load_dotenv 
 
-try:
-    from playwright.async_api import async_playwright
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
-    logging.warning("Playwright nije instaliran")
-
+load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class PlaywrightChecker:
-    """Provjera dostupnosti sa Playwright"""
+class ScraperAPIChecker:
+    """Provjera dostupnosti sa HTTPX ScraperAPI"""
     
     def __init__(self):
         self.base_url = "https://katalog.halubajska-zora.hr"
         self.headers = {
+            "Host": "katalog.halubajska-zora.hr",
+            "Connection": "keep-alive",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "X-Requested-With": "XMLHttpRequest",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "Origin": self.base_url,
-            "Referer": self.base_url + "/pagesResults/bibliografskiZapis.aspx"
+            "Referer": self.base_url + "/pagesResults/bibliografskiZapis.aspx",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "max-age=0",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
         }
+        self.scraper_api_key = os.getenv('SCRAPER_API_KEY')
+        if not self.scraper_api_key:
+            logger.warning("SCRAPER_API_KEY nije postavljen - scraping neće raditi")
     
     async def check_availability(self, book_id: str) -> Dict:
         """Provjeri dostupnost knjige"""
-        logger.info(f"--- START CHECK_AVAILABILITY za ID: {book_id} ---")
-        main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
-        api_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx"
+        if not self.scraper_api_key:
+            return {
+                'book_id': book_id,
+                'title': 'Greška',
+                'locations': [],
+                'error': 'ScraperAPI key nije postavljen'
+            }     
+        
+        try: 
+            main_url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
+            params = {
+                'api_key': self.scraper_api_key,
+                'url': main_url,
+                'render': 'true',  # Izvršava JavaScript (čeka AJAX)
+                'country_code': 'hr'  # Koristi HR proxy
+            }
+            logger.info(f"Dohvaćam stranicu preko ScraperAPI (render=true)...")
 
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-            try: 
-                initial_headers = self.headers.copy()
-                initial_headers.pop("X-Requested-With", None)
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.get(
+                    "http://api.scraperapi.com/",
+                    params=params
+                )
+                if response.status_code != 200:
+                    logger.error(f"ScraperAPI error: {response.status_code}")
+                    return {
+                        'book_id': book_id,
+                        'title': 'Greška',
+                        'locations': [],
+                        'error': f'HTTP {response.status_code}'
+                    }
+                logger.info(f"Response primljen: {len(response.text)} bytes")
 
-                resp = await client.get(main_url, headers=self.headers, timeout=20.0)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    title_elem = soup.select_one("#divNaslov")
-                    if title_elem:
-                        title = title_elem.get_text(strip=True).split('/')[0].strip()
-                
-                ajax_headers = self.headers.copy()
-                ajax_headers["Referer"] = main_url
-                ajax_headers["X-Requested-With"] = "XMLHttpRequest"
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-                data = {
-                    "action": "getLokacije",
-                    "bibliografskiZapisId": book_id,
-                    "random": str(random.random())
-                }
-                logger.info(f"Šaljem API zahtjev (Referer: {main_url})")
-                api_resp = await client.post(api_url, data=data, headers=ajax_headers, timeout=20.0)
-                #DEBUG
-                raw_html = api_resp.text.strip()
-                logger.info(f"API Response (prvih 100): {raw_html[:100]}")
-                
-                if not raw_html or raw_html == "<br/>":
-                    logger.error("🛑 Server je opet vratio prazno. Pokušavam zadnji trik...")
-                    client.cookies.set("LastViewed", book_id, domain="katalog.halubajska-zora.hr")
-                    api_resp = await client.post(api_url, data=data, headers=ajax_headers)
+                title = "Nepoznato"
+                title_elem = soup.select_one("#divNaslov span.hidden")
+                if title_elem:
+                    title = title_elem.get_text(strip=True).split('/')[0].strip()
+                logger.info(f"Naslov: {title}")
 
-                locations = []
-                if api_resp.status_code == 200:
-                    # API vraća čisti HTML tablice
-                    locations = self._parse_locations_html(api_resp.text)
+                locations = self._parse_locations(soup)
 
                 return {
                     'book_id': book_id,
                     'title': title,
-                    'locations': locations
+                    'locations': locations,
                 }
                 
-            except Exception as e:
-                logger.error(f"Greška pri provjeri: {str(e)}")
-                return {'book_id': book_id, 'title': 'Greška', 'locations': []}
+        except httpx.ReadTimeout:
+            logger.error("Timeout - ScraperAPI predugo odgovara")
+            return {
+                'book_id': book_id,
+                'title': 'Timeout',
+                'locations': [],
+                'error': 'Request timeout - pokušaj ponovno'
+            }
+        
+        except Exception as e:
+            logger.error(f"Greška: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'book_id': book_id,
+                'title': 'Greška',
+                'locations': [],
+                'error': str(e)
+            }
     
-    def _parse_locations_html(self, html_content: str) -> List[Dict]:
+    def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
         """Parsira lokacije"""
         locations = []
-        #DEBUG
-        logger.info(f"API Response snippet: {html_content[:300]}")
-        
-        soup = BeautifulSoup(html_content, 'html.parser')
         table = soup.find('table', class_='tblData')
-
-        rows = soup.find_all('tr')
-        if not rows:
-            logger.warning("Nema <tr> elemenata, pokušavam alternativni parsing...")
-            # Ponekad ASP.NET vrati samo sadržaj bez <table> taga
 
         if not table:
             all_tables = soup.find_all('table')
+            logger.info(f"Pronađeno {len(all_tables)} tablica")
             if all_tables:
                 table = all_tables[0]
         
         if not table:
-            logger.warning("Nema tablice s podacima u HTML-u")
+            logger.warning("Nema tablice u HTML-u")
             return locations
-        
-        current_location = "Glavna zbirka"
+
+        rows = soup.find_all('tr')
+        logger.info(f"Tablica ima {len(rows)} redova")
+        current_location = None
         
         for row in rows:
-            cells = row.find_all(['td', 'th'])  
-            if len(cells) < 2: 
+            cells = row.find_all(['td'])  
+            if not cells:
                 continue
-            
             first_cell = cells[0].get_text(strip=True)
-            
-            if first_cell == 'Lokacija':
-                continue
 
             # Lokacija
             if 'tel:' in first_cell:
@@ -144,6 +163,7 @@ class PlaywrightChecker:
                 status_info = self._parse_status(status_text, signature)
                 
                 if status_info:
+                    logger.info(f"  Parsiran status: {status_info['status']}")
                     locations.append({
                         'location': f"{current_location} ({loc_detail})",
                         'signature': status_info['signature'],
@@ -225,10 +245,10 @@ class PlaywrightChecker:
 # Test
 async def main():
     print("=" * 70)
-    print("PLAYWRIGHT ASYNC TEST")
+    print("HTTPX ASYNC TEST")
     print("=" * 70)
     
-    checker = PlaywrightChecker()
+    checker = ScraperAPIChecker()
     test_id = "428003512"
     
     # Moramo koristiti 'await'!
