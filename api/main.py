@@ -22,16 +22,13 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from scraper.availability_checker import PlaywrightChecker
+    from scraper.availability_checker import ScraperAPIChecker
     from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
     sys.path.append(os.getcwd())
-    from scraper.availability_checker import PlaywrightChecker
-    from database.db_manager import DatabaseManager
-    from chatbot.knowledge_base import KnowledgeBase
 
 import re
 
@@ -56,7 +53,7 @@ app.add_middleware(
 )
 
 # Inicijaliziraj bazu i knowledge base
-availability_checker = PlaywrightChecker()
+availability_checker = ScraperAPIChecker()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
@@ -279,12 +276,10 @@ async def check_book_availability(book_id: str):
     try:
         availability = await availability_checker.check_availability(book_id)
         logger.info(f"Availability result for {book_id}: {availability}")
-        message = availability_checker.format_availability_message(availability)
-        
+        message = availability_checker.format_availability_message(availability)    
         # Vraćamo JSON objekt, a ne samo običan string, 
         # kako bi frontend (data.response) to znao pročitati
         return {"response": message}
-
     except Exception as e:
         logger.error(f"AVAILABILITY ERROR: {e}")
         import traceback
@@ -309,7 +304,7 @@ async def chat(request: ChatRequest):
         return ChatResponse(response=response)
         
     except Exception as e:
-        logger.error(f"SISTEMSKA GRESKA: {str(e)}")
+        logger.error(f"API ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
 
 
@@ -367,16 +362,18 @@ async def get_popular_books(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# STARTUP
+# --- STARTUP / SHUTDOWN
 
 @app.on_event("startup")
 async def startup_event():
     """Pokreće se kad se API pokrene"""
     print("=" * 70)
     print("🚀 Library Chatbot API pokrenut!")
-    
-    # Provjeri je li baza prazna
-    all_books = db.get_all_books(limit=1)
+    try:
+        # Provjeri je li baza prazna
+        all_books = db.get_all_books(limit=1)
+    except Exception as e:
+        print(f"⚠️ Problem s bazom: {e}")
     
     if not all_books or len(all_books) == 0:
         print("⚠️ Baza je prazna - učitavam knjige iz JSON-a...")
