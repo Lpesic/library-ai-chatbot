@@ -108,19 +108,21 @@ async def search_catalog_for_book(query: str) -> Dict:
             logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
             return None
         
+        clean_query = query.replace(' ', '+')
         logger.info(f"Pretražujem katalog za: {query}")
                
         # URL za pretraživanje kataloga
-        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={query}"
+        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={clean_query}"
         
         params = {
             'api_key': scraper_api_key,
             'url': search_url,
             'country_code': 'hr',
-            'render': 'false'
+            'render': 'true',
+            'premium': 'false'
         }
               
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
             response = await client.get(
                 "http://api.scraperapi.com/",
                 params=params
@@ -133,42 +135,34 @@ async def search_catalog_for_book(query: str) -> Dict:
         logger.info(f"Response: {len(response.text)} bytes")
         
         soup = BeautifulSoup(response.text, 'html.parser')
-        title_link = soup.find('a', href=re.compile(r'selectedId=\d+'))
-        
-        if not title_link:
-                    logger.warning("Naslovni link nije nađen po regexu, pokušavam alternativu...")
-                    title_link = soup.select_one("a[href*='bibliografskiZapis.aspx']")
 
-        if title_link is None:
-            logger.warning("Katalog nije vratio rezultate ili je struktura nečitljiva.")
-            return None
+        found_link = None
+        book_id = None
+        all_links = soup.find_all('a', href=True)
 
-        href = title_link.get('href', '')
-        match = re.search(r'selectedId=(\d+)', href)
+        for link in all_links:
+            href = link['href']
+            # Tražimo uzorak 'selectedId=' u linku
+            match = re.search(r'selectedId=(\d+)', href, re.IGNORECASE)
+            
+            # Dodatna provjera: mora voditi na bibliografski zapis, ne na košaricu i sl.
+            if match and 'bibliografskiZapis' in href:
+                book_id = match.group(1)
+                found_link = link
+                break # Uzimamo prvi rezultat (najrelevantniji)
 
-        if not match:
-            logger.warning(f"Nađen link {href}, ali ne i ID")
-            return None
-        
-        book_id = match.group(1)
-        title = title_link.get_text(strip=True).split('/')[0].strip()
+        if not book_id:
+                logger.warning(f"Nema rezultata za '{query}' (ili ScraperAPI nije učitao listu).")
+                return None
 
-        logger.info(f"PRONAĐENO: {title} (ID: {book_id})")
-        
-        # Izvuci autora (opcionalno)
-        author = "Nepoznat autor"
-        parent_div = title_link.find_parent('div', class_='divBibZapis')
-        if parent_div:
-            author_elem = parent_div.find('a', class_='aAutor')
-            if author_elem:
-                author = author_elem.get_text(strip=True)
-        
-        logger.info(f"Uspješno izvučeno s kataloga: {title} (ID: {book_id})")
+        full_text = found_link.get_text(strip=True)
+        title = full_text.split('/')[0].strip()
+        logger.info(f"PRONAĐENO U KATALOGU: {title} (ID: {book_id})")
         
         return {
             'book_id': book_id,
             'title': title,
-            'author': author
+            'author': "autor"
         }
     
     except httpx.TimeoutException:
