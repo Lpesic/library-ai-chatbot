@@ -25,6 +25,7 @@ try:
     from scraper.availability_checker import ScraperAPIChecker
     from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
+    from scraper.new_books_scraper import NewBooksScraper
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
@@ -54,6 +55,7 @@ app.add_middleware(
 
 # Inicijaliziraj bazu i knowledge base
 availability_checker = ScraperAPIChecker()
+new_books_scraper = NewBooksScraper()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
@@ -234,7 +236,13 @@ async def generate_response(user_message: str) -> str:
         
         return content + "\n\nViše: https://www.halubajska-zora.hr"
     
-    # 5. Default
+    #5. NOVE KNJIGE
+    if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove']):
+        logger.info("NOVE KNJIGE: Dohvaćam...")
+        books = await new_books_scraper.get_new_books(days=365, limit=8)
+        return new_books_scraper.format_new_books_message(books)   
+
+    # 6. Default
     return ("📚 **Dobrodošli!** Mogu vam pomoći s:\n\n"
             "• Informacijama o knjižnici (radno vrijeme, članstvo...)\n"
             "• Pretraživanjem knjiga po naslovu ili autoru\n"
@@ -286,6 +294,18 @@ async def check_book_availability(book_id: str):
         traceback.print_exc()
         # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
         return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
+
+@app.get("/api/books/new")
+async def get_new_books_endpoint(days: int = 365, limit: int = 10):
+    """Dohvati nove knjige"""
+    try:
+        books = await new_books_scraper.get_new_books(days=days, limit=limit)
+        return {
+            "count": len(books),
+            "books": books
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
