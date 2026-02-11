@@ -136,25 +136,24 @@ async def search_catalog_for_book(query: str) -> Dict:
         logger.info(f"Response: {len(response.text)} bytes")
         
         soup = BeautifulSoup(response.text, 'html.parser')
+        all_links = soup.find_all('a', class_='aNaslovLink')
+        logger.info(f"Pronađeno potencijalnih linkova: {len(all_links)}")
+        title_link = soup.find('a', class_='aNaslovLink')
         
-        # Pronađi prvu knjigu u rezultatima
-        first_book = soup.find('div', class_='divBibZapis')
-        
-        if not first_book:
-            logger.warning("Nema rezultata pretrage")
-            return None
-        
-        # Izvuci ID knjige iz URL-a
-        title_link = first_book.find('a', class_='aNaslovLink')
-        
+        if not title_link:
+            # Alternativa: ako katalog koristi drugačiju klasu u ovom prikazu
+            title_link = soup.select_one("div.divBibZapis a[href*='selectedId']")
         if not title_link or not title_link.get('href'):
-            logger.warning("Nema linka na knjigu")
+            logger.warning("Nema rezultata u HTML-u (title_link nije nađen)")
+            # DEBUG: spremi HTML u file da vidiš što se događa (opcionalno)
+            # with open("debug_search.html", "w", encoding="utf-8") as f: f.write(response.text)
             return None
         
-        match = re.search(r'selectedId=(\d+)', title_link['href'])
-        
+        href = title_link['href']
+        match = re.search(r'selectedId=(\d+)', href)
+
         if not match:
-            logger.warning("Ne mogu izvući book ID")
+            logger.warning(f"Nađen link {href}, ali ne i ID")
             return None
         
         book_id = match.group(1)
@@ -162,11 +161,13 @@ async def search_catalog_for_book(query: str) -> Dict:
         
         # Izvuci autora (opcionalno)
         author = "Nepoznat autor"
-        author_link = first_book.find('a', class_='aAutor')
-        if author_link:
-            author = author_link.get_text(strip=True)
+        parent_div = title_link.find_parent('div', class_='divBibZapis')
+        if parent_div:
+            author_elem = parent_div.find('a', class_='aAutor')
+            if author_elem:
+                author = author_elem.get_text(strip=True)
         
-        logger.info(f"Pronađena knjiga: {title} (ID: {book_id})")
+        logger.info(f"Uspješno izvučeno s kataloga: {title} (ID: {book_id})")
         
         return {
             'book_id': book_id,
