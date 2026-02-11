@@ -8,10 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, Dict
 import sys
 import os
-import logging, traceback
+import logging
+import re
+import httpx
+from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,8 +33,6 @@ except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
     sys.path.append(os.getcwd())
-
-import re
 
 # Dodaj parent directory u path
 
@@ -96,6 +97,97 @@ def extract_keywords(query: str) -> list:
     words = re.findall(r'\w+', query.lower())
     return [w for w in words if w not in stop_words and len(w) > 2][:3]
 
+async def search_catalog_for_book(query: str) -> Dict:
+    """
+    Pretraži katalog knjižnice za knjigu
+    Koristi se kad knjiga nije u lokalnoj bazi
+    """
+    try:
+        scraper_api_key = os.getenv('SCRAPER_API_KEY')
+        
+        if not scraper_api_key:
+            logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
+            return None
+        
+        logger.info(f"Pretražujem katalog za: {query}")
+        
+        # URL encode query
+        import urllib.parse
+        encoded_query = urllib.parse.quote(query)
+        
+        # URL za pretraživanje kataloga
+        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={encoded_query}"
+        
+        params = {
+            'api_key': scraper_api_key,
+            'url': search_url,
+            'country_code': 'hr',
+            'render': 'true'
+        }
+        
+        logger.info(f"ScraperAPI request: {search_url}")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                "http://api.scraperapi.com/",
+                params=params
+            )
+        
+        if response.status_code != 200:
+            logger.error(f"ScraperAPI error: {response.status_code}")
+            return None
+        
+        logger.info(f"Response: {len(response.text)} bytes")
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Pronađi prvu knjigu u rezultatima
+        first_book = soup.find('div', class_='divBibZapis')
+        
+        if not first_book:
+            logger.warning("Nema rezultata pretrage")
+            return None
+        
+        # Izvuci book ID iz URL-a
+        title_link = first_book.find('a', class_='aNaslovLink')
+        
+        if not title_link or not title_link.get('href'):
+            logger.warning("Nema linka na knjigu")
+            return None
+        
+        match = re.search(r'selectedId=(\d+)', title_link['href'])
+        
+        if not match:
+            logger.warning("Ne mogu izvući book ID")
+            return None
+        
+        book_id = match.group(1)
+        title = title_link.get_text(strip=True)
+        
+        # Izvuci autora (opcionalno)
+        author = "Nepoznat autor"
+        author_link = first_book.find('a', class_='aAutor')
+        if author_link:
+            author = author_link.get_text(strip=True)
+        
+        logger.info(f"Pronađena knjiga: {title} (ID: {book_id})")
+        
+        return {
+            'book_id': book_id,
+            'title': title,
+            'author': author
+        }
+    
+    except httpx.TimeoutException:
+        logger.error("Timeout pri pretraživanju kataloga")
+        return None
+    
+    except Exception as e:
+        logger.error(f"Greška pri pretraživanju kataloga: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 async def generate_response(user_message: str) -> str:
     """Generira odgovor na korisničku poruku (template-based)"""
     
@@ -107,7 +199,7 @@ async def generate_response(user_message: str) -> str:
         keywords = extract_keywords(user_message)
 
         if keywords:
-            # Pretraži bazu za ID knjige
+            # 1. Prvo pretraži bazu za ID knjige
             books = db.search_books(keywords[0], limit=3)
             
             if books:
@@ -122,9 +214,22 @@ async def generate_response(user_message: str) -> str:
                     logger.error(f"Greška pri provjeri dostupnosti: {e}")
                     return "Trenutno ne mogu provjeriti status knjige u katalogu."
             else:
-                return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
+                # 2. Knjiga nije u bazi - scrape katalog
+                logger.info(f"Knjiga '{keywords[0]}' nije u lokalnoj bazi - tražim u katalogu...")
+                
+                # Potraži knjigu na katalogu
+                search_result = await search_catalog_for_book(keywords[0])
+                
+                if search_result:
+                    book_id = search_result['book_id']
+                    availability = await availability_checker.check_availability(book_id)
+                    return availability_checker.format_availability_message(availability)
+                else:
+                    return (f"Nisam pronašao knjigu **'{keywords[0]}'** u katalogu.\n\n"
+                        f"Provjerite katalog direktno:\n"
+                        f"🔗 https://katalog.halubajska-zora.hr")
         else:
-            return "Molim navedite naziv knjige čiju dostupnost želite provjeriti."    
+            return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
 
     # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
     if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
