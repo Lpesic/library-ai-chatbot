@@ -112,7 +112,7 @@ async def search_catalog_for_book(query: str) -> Dict:
         logger.info(f"Pretražujem katalog za: {query}")
                
         # URL za pretraživanje kataloga
-        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={encoded_query}"
+        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={query}"
         
         params = {
             'api_key': scraper_api_key,
@@ -144,7 +144,7 @@ async def search_catalog_for_book(query: str) -> Dict:
             logger.warning("Nema rezultata pretrage")
             return None
         
-        # Izvuci book ID iz URL-a
+        # Izvuci ID knjige iz URL-a
         title_link = first_book.find('a', class_='aNaslovLink')
         
         if not title_link or not title_link.get('href'):
