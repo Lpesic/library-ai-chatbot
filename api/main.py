@@ -104,7 +104,6 @@ async def search_catalog_for_book(query: str) -> Dict:
     """
     try:
         scraper_api_key = os.getenv('SCRAPER_API_KEY')
-        
         if not scraper_api_key:
             logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
             return None
@@ -118,12 +117,10 @@ async def search_catalog_for_book(query: str) -> Dict:
             'api_key': scraper_api_key,
             'url': search_url,
             'country_code': 'hr',
-            'render': 'false'
+            'render': 'true'
         }
-        
-        logger.info(f"ScraperAPI request: {search_url}")
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+              
+        async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
                 "http://api.scraperapi.com/",
                 params=params
@@ -136,20 +133,29 @@ async def search_catalog_for_book(query: str) -> Dict:
         logger.info(f"Response: {len(response.text)} bytes")
         
         soup = BeautifulSoup(response.text, 'html.parser')
-        all_links = soup.find_all('a', class_='aNaslovLink')
+        all_links = soup.find_all('a', href=re.compile(r'selectedId=\d+'))
         logger.info(f"Pronađeno potencijalnih linkova: {len(all_links)}")
         title_link = soup.find('a', class_='aNaslovLink')
         
-        if not title_link:
-            # Alternativa: ako katalog koristi drugačiju klasu u ovom prikazu
-            title_link = soup.select_one("div.divBibZapis a[href*='selectedId']")
-        if not title_link or not title_link.get('href'):
-            logger.warning("Nema rezultata u HTML-u (title_link nije nađen)")
-            # DEBUG: spremi HTML u file da vidiš što se događa (opcionalno)
-            # with open("debug_search.html", "w", encoding="utf-8") as f: f.write(response.text)
-            return None
-        
-        href = title_link['href']
+        for link in all_links:
+            href = link.get('href', '')
+            match = re.search(r'selectedId=(\d+)', href)
+            if match:
+                book_id = match.group(1)
+                # Uzmi tekst linka kao naslov, ali očisti ga od viška razmaka
+                title = link.get_text(strip=True)
+                
+                # Preskoči linkove koji nisu naslovi (npr. slike ili gumbi "Detalji")
+                if len(title) < 2: continue 
+
+                logger.info(f"PRONAĐENO: {title} (ID: {book_id})")
+                return {
+                    'book_id': book_id,
+                    'title': title,
+                    'author': "Pogledati u detaljima"
+                }
+
+        href = title_link.get('href', '')
         match = re.search(r'selectedId=(\d+)', href)
 
         if not match:
@@ -157,7 +163,10 @@ async def search_catalog_for_book(query: str) -> Dict:
             return None
         
         book_id = match.group(1)
-        title = title_link.get_text(strip=True)
+        raw_title = title_link.get_text(strip=True)
+        clean_title = raw_title.split('/')[0].strip()
+
+        logger.info(f"Uspješno izvučeno: {clean_title} (ID: {book_id})")
         
         # Izvuci autora (opcionalno)
         author = "Nepoznat autor"
@@ -171,7 +180,7 @@ async def search_catalog_for_book(query: str) -> Dict:
         
         return {
             'book_id': book_id,
-            'title': title,
+            'title': clean_title,
             'author': author
         }
     
