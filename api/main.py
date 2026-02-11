@@ -117,7 +117,7 @@ async def search_catalog_for_book(query: str) -> Dict:
             'api_key': scraper_api_key,
             'url': search_url,
             'country_code': 'hr',
-            'render': 'true'
+            'render': 'false'
         }
               
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -133,27 +133,15 @@ async def search_catalog_for_book(query: str) -> Dict:
         logger.info(f"Response: {len(response.text)} bytes")
         
         soup = BeautifulSoup(response.text, 'html.parser')
-        all_links = soup.find_all('a', href=re.compile(r'selectedId=\d+'))
-        logger.info(f"Pronađeno potencijalnih linkova: {len(all_links)}")
-        title_link = soup.find('a', class_='aNaslovLink')
+        title_link = soup.find('a', href=re.compile(r'selectedId=\d+'))
         
-        for link in all_links:
-            href = link.get('href', '')
-            match = re.search(r'selectedId=(\d+)', href)
-            if match:
-                book_id = match.group(1)
-                # Uzmi tekst linka kao naslov, ali očisti ga od viška razmaka
-                title = link.get_text(strip=True)
-                
-                # Preskoči linkove koji nisu naslovi (npr. slike ili gumbi "Detalji")
-                if len(title) < 2: continue 
+        if not title_link:
+                    logger.warning("Naslovni link nije nađen po regexu, pokušavam alternativu...")
+                    title_link = soup.select_one("a[href*='bibliografskiZapis.aspx']")
 
-                logger.info(f"PRONAĐENO: {title} (ID: {book_id})")
-                return {
-                    'book_id': book_id,
-                    'title': title,
-                    'author': "Pogledati u detaljima"
-                }
+        if title_link is None:
+            logger.warning("Katalog nije vratio rezultate ili je struktura nečitljiva.")
+            return None
 
         href = title_link.get('href', '')
         match = re.search(r'selectedId=(\d+)', href)
@@ -163,10 +151,9 @@ async def search_catalog_for_book(query: str) -> Dict:
             return None
         
         book_id = match.group(1)
-        raw_title = title_link.get_text(strip=True)
-        clean_title = raw_title.split('/')[0].strip()
+        title = title_link.get_text(strip=True).split('/')[0].strip()
 
-        logger.info(f"Uspješno izvučeno: {clean_title} (ID: {book_id})")
+        logger.info(f"PRONAĐENO: {title} (ID: {book_id})")
         
         # Izvuci autora (opcionalno)
         author = "Nepoznat autor"
@@ -180,7 +167,7 @@ async def search_catalog_for_book(query: str) -> Dict:
         
         return {
             'book_id': book_id,
-            'title': clean_title,
+            'title': title,
             'author': author
         }
     
