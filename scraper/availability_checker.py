@@ -56,7 +56,7 @@ class ScraperAPIChecker:
             params = {
                 'api_key': self.scraper_api_key,
                 'url': main_url,
-                'render': 'true',  # Izvršava JavaScript (čeka AJAX)
+                'render': 'false', 
                 'country_code': 'hr'  # Koristi HR proxy
             }
             logger.info(f"Dohvaćam stranicu preko ScraperAPI (render=true)...")

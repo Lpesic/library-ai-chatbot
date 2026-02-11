@@ -200,30 +200,26 @@ async def generate_response(user_message: str) -> str:
             
             if books:
                 book = books[0]
-                book_id = book['id']
+                book_id = book['id']             
                 
-                try:
-                    # Provjeri dostupnost
-                    availability = await availability_checker.check_availability(book_id)
-                    return availability_checker.format_availability_message(availability)
-                except Exception as e:
-                    logger.error(f"Greška pri provjeri dostupnosti: {e}")
-                    return "Trenutno ne mogu provjeriti status knjige u katalogu."
             else:
                 # 2. Knjiga nije u bazi - scrape katalog
                 logger.info(f"Knjiga '{keywords[0]}' nije u lokalnoj bazi - tražim u katalogu...")
-                
-                # Potraži knjigu na katalogu
                 search_result = await search_catalog_for_book(keywords[0])
                 
                 if search_result:
                     book_id = search_result['book_id']
-                    availability = await availability_checker.check_availability(book_id)
-                    return availability_checker.format_availability_message(availability)
                 else:
                     return (f"Nisam pronašao knjigu **'{keywords[0]}'** u katalogu.\n\n"
                         f"Provjerite katalog direktno:\n"
                         f"🔗 https://katalog.halubajska-zora.hr")
+            try:
+                # Provjeri dostupnost
+                availability = await availability_checker.check_availability(book_id)
+                return availability_checker.format_availability_message(availability)
+            except Exception as e:
+                logger.error(f"Greška pri provjeri dostupnosti: {e}")
+                return "Trenutno ne mogu provjeriti status knjige u katalogu."
         else:
             return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
 
