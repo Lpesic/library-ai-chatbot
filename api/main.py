@@ -110,11 +110,7 @@ async def search_catalog_for_book(query: str) -> Dict:
             return None
         
         logger.info(f"Pretražujem katalog za: {query}")
-        
-        # URL encode query
-        import urllib.parse
-        encoded_query = urllib.parse.quote(query)
-        
+               
         # URL za pretraživanje kataloga
         search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={encoded_query}"
         
@@ -122,7 +118,7 @@ async def search_catalog_for_book(query: str) -> Dict:
             'api_key': scraper_api_key,
             'url': search_url,
             'country_code': 'hr',
-            'render': 'true'
+            'render': 'false'
         }
         
         logger.info(f"ScraperAPI request: {search_url}")
