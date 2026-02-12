@@ -81,6 +81,26 @@
         display: block;
       }
 
+      .chat-input-area button.loading {
+        background: #ccc !important;
+        color: #666;
+        cursor: default;
+      }
+
+      .chat-input-area button.loading:hover {
+        background: #ff4757 !important; /* Crvena */
+        color: white;
+        cursor: pointer;
+      }
+
+      .chat-input-area button.loading:hover .btn-text {
+        display: none;
+      }
+
+      .chat-input-area button.loading:hover::after {
+        content: " ✕";
+      }
+
       /* Chat Widget */
       .chat-widget {
         position: fixed;
@@ -453,7 +473,9 @@
           placeholder="Upiši poruku..."
           onkeydown="handleKeyPress(event)"
         />
-        <button id="sendBtn" onclick="sendMessage()">Pošalji</button>
+        <button id="sendBtn" onclick="sendMessage()">
+          <span class="btn-text">Pošalji</span>
+        </button>
       </div>
     </div>
 
@@ -466,6 +488,7 @@
       const sendBtn = document.getElementById("sendBtn");
       const notificationBadge = document.getElementById("notificationBadge");
 
+      let currentAbortController = null;
       let isOpen = false;
       let messageHistory = [];
       let historyIndex = -1;
@@ -525,6 +548,16 @@
 
       async function sendMessage() {
         const message = chatInput.value.trim();
+        const sendBtn = document.getElementById("sendBtn");
+        const btnText = sendBtn.querySelector(".btn-text");
+
+        if (sendBtn.classList.contains("loading")) {
+          if (currentAbortController) {
+            currentAbortController.abort();
+            console.log("Zahtjev prekinut od strane korisnika.");
+          }
+          return;
+        }
 
         if (!message) return;
 
@@ -534,10 +567,11 @@
         addMessage(message, true);
         chatInput.value = "";
 
-        sendBtn.disabled = true;
+        sendBtn.classList.add("loading");
         chatInput.disabled = true;
-
         showTypingIndicator();
+
+        currentAbortController = new AbortController();
 
         try {
           const response = await fetch(`${API_URL}/api/chat`, {
@@ -546,6 +580,7 @@
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ message: message }),
+            signal: currentAbortController.signal,
           });
 
           if (!response.ok) {
@@ -556,12 +591,17 @@
           addMessage(data.response);
         } catch (error) {
           hideTypingIndicator();
-          addMessage("Ups! Došlo je do greške. Molim pokušaj ponovno. 😕");
+          if (error.name === "AbortError") {
+            addMessage("Prekinuli ste generiranje odgovora. ⏹️");
+          } else {
+            addMessage("Ups! Došlo je do greške. Molim pokušaj ponovno. 😕");
+          }
           console.error("Error:", error);
         } finally {
-          sendBtn.disabled = false;
+          sendBtn.classList.remove("loading");
           chatInput.disabled = false;
           chatInput.focus();
+          currentAbortController = null;
         }
       }
 
