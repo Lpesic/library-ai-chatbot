@@ -118,7 +118,7 @@ async def search_catalog_for_book(query: str) -> Dict:
             'api_key': scraper_api_key,
             'url': search_url,
             'country_code': 'hr',
-            'render': 'true',
+            'render': 'false',
             'premium': 'false'
         }
               
