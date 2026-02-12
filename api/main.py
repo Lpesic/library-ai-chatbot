@@ -108,11 +108,11 @@ async def search_catalog_for_book(query: str) -> Dict:
             logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
             return None
         
-        clean_query = query.replace(' ', '+')
-        logger.info(f"Pretražujem katalog za: {query}")
+        import urllib.parse
+        encoded_query = urllib.parse.quote(query, safe='')
                
         # URL za pretraživanje kataloga
-        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=0&fid0=1&fv0={clean_query}"
+        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?currentPage=1&searchById=1&sort=0&age=0&spid0=1&spv0={encoded_query}"
         
         params = {
             'api_key': scraper_api_key,
@@ -133,36 +133,50 @@ async def search_catalog_for_book(query: str) -> Dict:
             return None
         
         logger.info(f"Response: {len(response.text)} bytes")
-        
+
+        #if os.path.exists('data'):
+         #   with open('data/catalog_search_debug.html', 'w', encoding='utf-8') as f:
+          #      f.write(response.text)
+           # logger.info("✓ HTML spremljen u data/catalog_search_debug.html")
+        #logger.info(f"HTML preview: {response.text[:500]}")
+
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        found_link = None
-        book_id = None
-        all_links = soup.find_all('a', href=True)
+        book_divs = soup.find_all('div', class_='divBibZapis')
+        logger.info(f"Pronađeno {len(book_divs)} knjiga")
 
-        for link in all_links:
-            href = link['href']
-            # Tražimo uzorak 'selectedId=' u linku
-            match = re.search(r'selectedId=(\d+)', href, re.IGNORECASE)
-            
-            # Dodatna provjera: mora voditi na bibliografski zapis, ne na košaricu i sl.
-            if match and 'bibliografskiZapis' in href:
-                book_id = match.group(1)
-                found_link = link
-                break # Uzimamo prvi rezultat (najrelevantniji)
-
-        if not book_id:
-                logger.warning(f"Nema rezultata za '{query}' (ili ScraperAPI nije učitao listu).")
-                return None
-
-        full_text = found_link.get_text(strip=True)
-        title = full_text.split('/')[0].strip()
-        logger.info(f"PRONAĐENO U KATALOGU: {title} (ID: {book_id})")
+        if not book_divs:
+            logger.warning("Nema rezultata pretrage")
+            return None
         
+        first_book = book_divs[0]
+        title_link = first_book.find('a', class_='aNaslovLink')
+
+        if not title_link:
+            logger.warning("Nema title link-a")
+            return None
+        
+        title = title_link.get_text(strip=True)
+        href = title_link.get('href', '')
+        match = re.search(r'selectedId=(\d+)', href)
+
+        if not match:
+            logger.warning(f"selectedId nije pronađen u: {href}")
+            return None
+        
+        book_id = match.group(1)
+
+        author = "Nepoznat autor"
+        author_link = first_book.find('a', class_='aAutor')
+        if author_link:
+            author = author_link.get_text(strip=True)
+
+        logger.info(f"✓ Pronađeno: {title} - {author} (ID: {book_id})")
+                
         return {
             'book_id': book_id,
             'title': title,
-            'author': "autor"
+            'author': author
         }
     
     except httpx.TimeoutException:
@@ -509,6 +523,11 @@ async def shutdown_event():
     db.close()
     print("API ugašen")
 
+import asyncio
+from api.main import search_catalog_for_book
+async def test():
+    result = await search_catalog_for_book("čovpas")
+    print(result)
 
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
@@ -523,7 +542,8 @@ if os.path.exists(frontend_dir):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
+    asyncio.run(test())
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
