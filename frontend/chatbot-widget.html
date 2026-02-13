@@ -1,9 +1,13 @@
 <!doctype html>
+
 <html lang="hr">
   <head>
     <meta charset="UTF-8" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>Knjižnica Halubajska Zora</title>
+
     <style>
       * {
         margin: 0;
@@ -39,6 +43,7 @@
       }
 
       /* Chat Button - Floating */
+
       .chat-button {
         position: fixed;
         bottom: 30px;
@@ -81,27 +86,8 @@
         display: block;
       }
 
-      .chat-input-area button.loading {
-        background: #ccc !important;
-        color: #666;
-        cursor: default;
-      }
-
-      .chat-input-area button.loading:hover {
-        background: #ff4757 !important; /* Crvena */
-        color: white;
-        cursor: pointer;
-      }
-
-      .chat-input-area button.loading:hover .btn-text {
-        display: none;
-      }
-
-      .chat-input-area button.loading:hover::after {
-        content: " ✕";
-      }
-
       /* Chat Widget */
+
       .chat-widget {
         position: fixed;
         bottom: 100px;
@@ -126,6 +112,7 @@
           opacity: 0;
           transform: translateY(20px);
         }
+
         to {
           opacity: 1;
           transform: translateY(0);
@@ -167,6 +154,7 @@
           opacity: 0;
           transform: translateY(10px);
         }
+
         to {
           opacity: 1;
           transform: translateY(0);
@@ -238,6 +226,7 @@
         100% {
           transform: translateY(0);
         }
+
         30% {
           transform: translateY(-8px);
         }
@@ -300,6 +289,12 @@
         font-size: 13px;
         font-weight: 600;
         transition: transform 0.2s;
+        width: 80px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
       }
 
       .chat-input-area button:hover {
@@ -308,10 +303,37 @@
 
       .chat-input-area button:disabled {
         opacity: 0.6;
+
         cursor: not-allowed;
       }
 
+      #sendBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      #sendBtn:active {
+        transform: translateY(0);
+      }
+
+      #sendBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      #sendBtn.stop-mode {
+        background: transparent;
+        border: 1px solid #7e7e7e;
+        color: #7e7e7e;
+      }
+
+      #sendBtn.stop-mode:hover {
+        background: rgba(255, 71, 87, 0.1);
+        transform: translateY(-1px);
+      }
       /* Notification Badge */
+
       .notification-badge {
         position: absolute;
         top: -5px;
@@ -334,6 +356,7 @@
       }
 
       /* Mobile responsive */
+
       @media (max-width: 768px) {
         .chat-widget {
           width: calc(100% - 40px);
@@ -349,8 +372,10 @@
       }
     </style>
   </head>
+
   <body>
     <!-- Glavna stranica content -->
+
     <div class="page-content">
       <h1>📚 Dobrodošli u Narodnu knjižnicu i čitaonicu Halubajska Zora</h1>
 
@@ -362,6 +387,7 @@
       </p>
 
       <h2>Naše usluge</h2>
+
       <p>
         • Posudba knjiga i časopisa<br />
         • Čitaonica i studijski prostori<br />
@@ -372,6 +398,7 @@
       </p>
 
       <h2>Radno vrijeme</h2>
+
       <p>
         Ponedjeljak - Petak: 8:00 - 20:00<br />
         Subota: 8:00 - 14:00<br />
@@ -379,6 +406,7 @@
       </p>
 
       <h2>Kontakt</h2>
+
       <p>
         📍 Adresa: [Adresa knjižnice]<br />
         📞 Telefon: [Broj telefona]<br />
@@ -403,6 +431,7 @@
     </div>
 
     <!-- Chat Button -->
+
     <div class="chat-button" id="chatButton" onclick="toggleChat()">
       <svg
         class="chat-icon"
@@ -413,6 +442,7 @@
           d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"
         />
       </svg>
+
       <svg
         class="close-icon"
         xmlns="http://www.w3.org/2000/svg"
@@ -422,13 +452,16 @@
           d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
         />
       </svg>
+
       <div class="notification-badge" id="notificationBadge">1</div>
     </div>
 
     <!-- Chat Widget -->
+
     <div class="chat-widget" id="chatWidget">
       <div class="chat-header">
         <h2>📚 Knjižnica Chatbot</h2>
+
         <p>Pitajte me bilo što!</p>
       </div>
 
@@ -449,15 +482,18 @@
         >
           Učlanjenje
         </button>
+
         <button class="quick-btn" onclick="sendQuickQuestion('Radno vrijeme?')">
           Radno vrijeme
         </button>
+
         <button
           class="quick-btn"
           onclick="sendQuickQuestion('Koliko knjiga mogu posuditi?')"
         >
           Posudba
         </button>
+
         <button
           class="quick-btn"
           onclick="sendQuickQuestion('Preporuči knjige')"
@@ -473,9 +509,8 @@
           placeholder="Upiši poruku..."
           onkeydown="handleKeyPress(event)"
         />
-        <button id="sendBtn" onclick="sendMessage()">
-          <span class="btn-text">Pošalji</span>
-        </button>
+
+        <button id="sendBtn" onclick="sendMessage()">Pošalji</button>
       </div>
     </div>
 
@@ -488,10 +523,13 @@
       const sendBtn = document.getElementById("sendBtn");
       const notificationBadge = document.getElementById("notificationBadge");
 
-      let currentAbortController = null;
+      let isGenerating = false;
+      let abortController = null;
       let isOpen = false;
       let messageHistory = [];
       let historyIndex = -1;
+      let currentUserMessage = "";
+      let lastBotMessageElement = null;
 
       function toggleChat() {
         isOpen = !isOpen;
@@ -500,6 +538,8 @@
           chatWidget.classList.add("active");
           chatButton.classList.add("active");
           notificationBadge.classList.remove("active");
+          chatInput.focus();
+
           chatInput.focus();
         } else {
           chatWidget.classList.remove("active");
@@ -521,9 +561,12 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         // Show notification if chat is closed
+
         if (!isOpen && !isUser) {
           notificationBadge.classList.add("active");
         }
+
+        return messageDiv;
       }
 
       function showTypingIndicator() {
@@ -535,6 +578,7 @@
                     <span></span><span></span><span></span>
                 </div>
             `;
+
         chatMessages.appendChild(indicator);
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
@@ -546,62 +590,97 @@
         }
       }
 
-      async function sendMessage() {
-        const message = chatInput.value.trim();
-        const sendBtn = document.getElementById("sendBtn");
-        const btnText = sendBtn.querySelector(".btn-text");
+      function updateSendButton(state) {
+        if (state === "sending") {
+          isGenerating = true;
+          sendBtn.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 14 14" display: inline-block; vertical-align: middle;"><rect width="14" height="14" fill="currentColor"/></svg>';
+          sendBtn.classList.add("stop-mode");
+          sendBtn.disabled = false;
+        } else {
+          // Normal state
+          isGenerating = false;
+          sendBtn.innerHTML = "Pošalji";
+          sendBtn.classList.remove("stop-mode");
+        }
+      }
 
-        if (sendBtn.classList.contains("loading")) {
-          if (currentAbortController) {
-            currentAbortController.abort();
-            console.log("Zahtjev prekinut od strane korisnika.");
+      async function sendMessage() {
+        if (isGenerating && abortController) {
+          abortController.abort();
+          hideTypingIndicator();
+
+          if (lastBotMessageElement) {
+            const content =
+              lastBotMessageElement.querySelector(".message-content");
+            content.textContent += " [Zaustavljeno]";
           }
+
+          chatInput.value = currentUserMessage;
+          chatInput.focus();
+
+          setTimeout(() => {
+            chatInput.selectionStart = chatInput.selectionEnd =
+              chatInput.value.length;
+          }, 0);
+
+          updateSendButton("normal");
+          sendBtn.disabled = false;
+          chatInput.disabled = false;
+
           return;
         }
-
+        const message = chatInput.value.trim();
         if (!message) return;
 
         messageHistory.push(message);
+        currentUserMessage = message;
         historyIndex = -1;
 
         addMessage(message, true);
         chatInput.value = "";
-
-        sendBtn.classList.add("loading");
+        //disable input
+        sendBtn.disabled = true;
         chatInput.disabled = true;
-        showTypingIndicator();
 
-        currentAbortController = new AbortController();
+        updateSendButton("sending");
+        showTypingIndicator();
+        abortController = new AbortController();
 
         try {
           const response = await fetch(`${API_URL}/api/chat`, {
             method: "POST",
+
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ message: message }),
-            signal: currentAbortController.signal,
+            signal: abortController.signal,
           });
 
           if (!response.ok) {
             throw new Error(`Server vratio status: ${response.status}`);
           }
+
           const data = await response.json();
+
           hideTypingIndicator();
           addMessage(data.response);
         } catch (error) {
           hideTypingIndicator();
+
           if (error.name === "AbortError") {
-            addMessage("Prekinuli ste generiranje odgovora. ⏹️");
+            console.log("Request cancelled");
           } else {
             addMessage("Ups! Došlo je do greške. Molim pokušaj ponovno. 😕");
+            console.error("Error:", error);
           }
-          console.error("Error:", error);
         } finally {
-          sendBtn.classList.remove("loading");
+          updateSendButton("normal");
+          sendBtn.disabled = false;
           chatInput.disabled = false;
           chatInput.focus();
-          currentAbortController = null;
+          abortController = null;
         }
       }
 
@@ -611,9 +690,9 @@
       }
 
       function handleKeyPress(event) {
-        if (event.key === "Enter") {
+        if (event.key === "Enter" && !isGenerating) {
           sendMessage();
-        } else if (event.key === "ArrowUp") {
+        } else if (event.key === "ArrowUp" && !isGenerating) {
           // Ako ima poruka u povijesti
           if (messageHistory.length > 0) {
             if (historyIndex === -1) {
@@ -621,8 +700,10 @@
             } else if (historyIndex > 0) {
               historyIndex--;
             }
+
             chatInput.value = messageHistory[historyIndex];
             // Postavi kursor na kraj teksta
+
             setTimeout(() => {
               chatInput.selectionStart = chatInput.selectionEnd =
                 chatInput.value.length;
@@ -630,10 +711,11 @@
 
             event.preventDefault();
           }
-        } else if (event.key === "ArrowDown") {
+        } else if (event.key === "ArrowDown" && !isGenerating) {
           if (historyIndex !== -1) {
             if (historyIndex < messageHistory.length - 1) {
               historyIndex++;
+
               chatInput.value = messageHistory[historyIndex];
             } else {
               historyIndex = -1;
@@ -643,7 +725,6 @@
           }
         }
       }
-
       // Show welcome notification poslije 3 seconds
       setTimeout(() => {
         if (!isOpen) {
