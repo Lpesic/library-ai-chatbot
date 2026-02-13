@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from scraper.availability_checker import ScraperAPIChecker
+    from scraper.category_scraper import CategoryScraper
     from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
     from scraper.new_books_scraper import NewBooksScraper
@@ -57,6 +58,7 @@ app.add_middleware(
 # Inicijaliziraj bazu i knowledge base
 availability_checker = ScraperAPIChecker()
 new_books_scraper = NewBooksScraper()
+category_scraper = CategoryScraper()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
@@ -230,7 +232,69 @@ async def generate_response(user_message: str) -> str:
 
     # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
     if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
-        # Izvuci temu ako postoji
+
+        # PRVO: Provjeri je li tražena specifična kategorija (ne-knjige)
+        category_keywords = {
+            # Igračke
+            'igračk': 'igračke',
+            'igrac': 'igračke',
+            
+            # Glazba
+            'glazb': 'glazbena građa',
+            'cd': 'glazbena građa',
+            'musik': 'glazbena građa',
+            'audio cd': 'glazbena građa',
+            
+            # Filmovi / Video
+            'film': 'vizualna građa',
+            'dvd': 'vizualna građa',
+            'video': 'vizualna građa',
+            
+            # Audioknjige
+            'audioknjig': 'zvučna građa',
+            'audio knjig': 'zvučna građa',
+            
+            # E-knjige
+            'e-knjig': 'e-knjiga',
+            'eknjig': 'e-knjiga',
+            'ebook': 'e-knjiga',
+            'digital': 'e-knjiga',
+            
+            # Časopisi
+            'časopis': 'časopis',
+            'casopis': 'časopis',
+            'magazin': 'časopis',
+            'revij': 'časopis',
+            
+            # Note
+            'not': 'notna građa',
+            'partitur': 'notna građa',
+            
+            # Karte
+            'kart': 'kartografska građa',
+            'zemljovid': 'kartografska građa',
+            'atlas': 'kartografska građa',
+            
+            # Grafika
+            'grafik': 'grafička građa',
+        }
+
+        detected_category = None
+        for keyword, category in category_keywords.items():
+            if keyword in query_lower:
+                detected_category = category
+                break
+
+        if detected_category:
+            logger.info(f"KATEGORIJA: Detektirana - {detected_category}")
+            items = await category_scraper.get_items_by_category(
+                category=detected_category,
+                limit=5,
+                random_selection=True
+            )
+            return category_scraper.format_category_message(items, detected_category)        
+       
+        # INAČE: Pretraži knjige po temi
         keywords = extract_keywords(user_message)
         
         books = []
