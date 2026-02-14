@@ -229,6 +229,118 @@ class CategoryScraper:
             traceback.print_exc()
             return []
     
+    async def get_most_read(
+        self, 
+        days: int = 30, 
+        limit: int = 10
+    ) -> List[Dict]:
+        """
+        Dohvati najčitanije knjige u zadnjih X dana
+        
+        Args:
+            days: Vremensko razdoblje (7, 30, 90, 180, 365)
+            limit: Broj rezultata
+            
+        Returns:
+            Lista najčitanijih knjiga
+        """
+        
+        try:
+            # Validiraj period
+            valid_periods = [7, 30, 90, 180, 365]
+            if days not in valid_periods:
+                # Pronađi najbliži validan period
+                days = min(valid_periods, key=lambda x: abs(x - days))
+                logger.info(f"Period prilagođen na {days} dana")
+            
+            logger.info(f"Dohvaćam najčitanije knjige (zadnjih {days} dana)...")
+            
+            # URL za najčitanije
+            most_read_url = f"{self.base_url}/pagesResults/rezultati.aspx?top={days}"
+            
+            # Koristi ScraperAPI
+            if self.scraper_api_key:
+                params = {
+                    'api_key': self.scraper_api_key,
+                    'url': most_read_url,
+                    'country_code': 'hr'
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(
+                        "http://api.scraperapi.com/",
+                        params=params
+                    )
+            else:
+                # Fallback
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(most_read_url)
+            
+            if response.status_code != 200:
+                logger.error(f"HTTP error: {response.status_code}")
+                return []
+            
+            logger.info(f"Response: {len(response.text)} bytes")
+            
+            # Parsiraj
+            soup = BeautifulSoup(response.text, 'html.parser')
+            books = self._parse_items(soup, limit)
+            
+            logger.info(f"Parsirano {len(books)} najčitanijih knjiga")
+            
+            return books
+        
+        except Exception as e:
+            logger.error(f"Greška pri dohvaćanju najčitanijih: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def format_most_read_message(
+        self, 
+        books: List[Dict], 
+        days: int
+    ) -> str:
+        """Formatira poruku sa najčitanijim knjigama"""
+        
+        if not books:
+            return (f"Nažalost, trenutno ne mogu dohvatiti najčitanije knjige.\n\n"
+                f"Provjerite katalog: https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?top={days}")
+        
+        # Period naziv
+        period_names = {
+            7: "tjedan dana",
+            30: "mjesec dana", 
+            90: "3 mjeseca",
+            180: "6 mjeseci",
+            365: "godinu dana"
+        }
+        
+        period_name = period_names.get(days, f"{days} dana")
+        
+        msg = f"🔥 **Najčitanije knjige (zadnjih {period_name}):**\n\n"
+        
+        for i, book in enumerate(books, 1):
+            msg += f"{i}. **{book['title']}**"
+            
+            if book.get('author'):
+                msg += f"\n   ✍️ {book['author']}"
+            
+            if book.get('year'):
+                msg += f" ({book['year']})"
+            
+            if book.get('status'):
+                if book['status'] == 'Dostupno':
+                    msg += f"\n   ✅ {book['status']}"
+                elif book['status'] == 'Posuđeno':
+                    msg += f"\n   ❌ {book['status']}"
+            
+            msg += "\n\n"
+        
+        msg += f"🔗 Sve najčitanije: https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?top={days}"
+        
+        return msg 
+
     def _parse_items(self, soup: BeautifulSoup, limit: int) -> List[Dict]:
         """Parsira stavke iz HTML-a"""
         items = []
@@ -368,12 +480,22 @@ if __name__ == "__main__":
                 limit=5,
                 random_selection=True
             )
-            
+
+            print(scraper.format_category_message(items, category))
+
+            print("\n" + "=" * 70)
+            print("🔥 Test najčitanije: zadnjih 30 dana")
+            print("-" * 70)
+
+            most_read = await scraper.get_most_read(days=30, limit=5)
+
             print("\nRAW DATA:")
-            print(json.dumps(items, indent=2, ensure_ascii=False))
+            print(json.dumps(most_read, indent=2, ensure_ascii=False))
+
+            print("\nRAW DATA:")
+            print(scraper.format_most_read_message(most_read, 30))
             
             print("\nFORMATIRANA PORUKA:")
-            print(scraper.format_category_message(items, category))
             print("\n" + "=" * 70)
     
     asyncio.run(test())

@@ -406,9 +406,40 @@ async def generate_response(user_message: str) -> str:
     if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove']):
         logger.info("NOVE KNJIGE: Dohvaćam...")
         books = await new_books_scraper.get_new_books(days=365, limit=8)
-        return new_books_scraper.format_new_books_message(books)   
+        return new_books_scraper.format_new_books_message(books)
 
-    # 6. Default
+    #6. NAJČITANIJE KNJIGE
+    if any(word in query_lower for word in ['najčitan', 'najpopular', 'top knjig', 'popularne knjige', 'hitovi']):
+        logger.info("NAJČITANIJE: Dohvaćam...")
+        
+        # Detektiraj period
+        days = 30  # Default
+        number_match = re.search(r'(\d+)\s*(dan|daN)', query_lower)
+        if number_match:
+            requested_days = int(number_match.group(1))
+            # Mapiranje na najbliži validan period
+            valid_periods = [7, 30, 90, 180, 365]
+            days = min(valid_periods, key=lambda x: abs(x - requested_days))
+            logger.info(f"Detektiran period: {requested_days} → mapiran na {days} dana")
+        
+        if any(word in query_lower for word in ['tjedan', 'sedmic', '7']):
+            days = 7
+        elif any(word in query_lower for word in ['mjesec', 'mjeseca', '30']) and '3' not in query_lower and '6' not in query_lower:
+            days = 30
+        elif any(word in query_lower for word in ['3 mjesec', 'tri mjesec', '90']):
+            days = 90
+        elif any(word in query_lower for word in ['6 mjesec', 'pola god', '180', 'šest mjesec']):
+            days = 180
+        elif any(word in query_lower for word in ['godin', 'godine', '365']):
+            days = 365
+        
+        logger.info(f"Konačni period: {days} dana")
+        
+        books = await category_scraper.get_most_read(days=days, limit=10)
+        return category_scraper.format_most_read_message(books, days)
+   
+
+    #POSLJEDNJE - Default
     return ("📚 **Dobrodošli!** Mogu vam pomoći s:\n\n"
             "• Informacijama o knjižnici (radno vrijeme, članstvo...)\n"
             "• Pretraživanjem knjiga po naslovu ili autoru\n"
