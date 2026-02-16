@@ -1,0 +1,232 @@
+{
+  "književnost": {
+    "url_param": "%23179%238200000000%2382%23S%23Književnost",
+    "display_name": "Književnost",
+    "count": 10898
+  },
+  "knjizevnost": {
+    "url_param": "%23179%238200000000%2382%23S%23Književnost",
+    "display_name": "Književnost",
+    "count": 10898
+  },
+  "hrvatska književnost": {
+    "url_param": "%23179%23821.163.42%23821.163.42%23S%23Hrvatska+književnost",
+    "display_name": "Hrvatska književnost",
+    "count": 6538
+  },
+  "hrvatska knjizevnost": {
+    "url_param": "%23179%23821.163.42%23821.163.42%23S%23Hrvatska+književnost",
+    "display_name": "Hrvatska književnost",
+    "count": 6538
+  },
+  "psihologija": {
+    "url_param": "%23179%231590000000%23159%23S%23Psihologija",
+    "display_name": "Psihologija",
+    "count": 1442
+  },
+  "medicina": {
+    "url_param": "%23179%236100000000%2361%23S%23Medicina",
+    "display_name": "Medicina",
+    "count": 1391
+  },
+  "crtanje": {
+    "url_param": "%23179%237400000000%2374%23S%23Crtanje.+Oblikovanje.+Primijenjena+umjetnost%2c+umjetnički+obrt",
+    "display_name": "Crtanje i oblikovanje",
+    "count": 1232
+  },
+  "umjetnost": {
+    "url_param": "%23179%237400000000%2374%23S%23Crtanje.+Oblikovanje.+Primijenjena+umjetnost%2c+umjetnički+obrt",
+    "display_name": "Crtanje i oblikovanje",
+    "count": 1232
+  },
+  "politika": {
+    "url_param": "%23179%233200000000%2332%23S%23Politika",
+    "display_name": "Politika",
+    "count": 665
+  },
+  "prolegomena": {
+    "url_param": "%23179%230000000000%2300%23S%23Prolegomena.+Temelji+znanja+i+kulture",
+    "display_name": "Prolegomena",
+    "count": 603
+  },
+  "kršćanstvo": {
+    "url_param": "%23179%232300000000%2323%23S%23Kršćanstvo",
+    "display_name": "Kršćanstvo",
+    "count": 589
+  },
+  "krscanstvo": {
+    "url_param": "%23179%232300000000%2323%23S%23Kršćanstvo",
+    "display_name": "Kršćanstvo",
+    "count": 589
+  },
+  "odgoj": {
+    "url_param": "%23179%233700000000%2337%23S%23Odgoj+i+obrazovanje",
+    "display_name": "Odgoj i obrazovanje",
+    "count": 588
+  },
+  "obrazovanje": {
+    "url_param": "%23179%233700000000%2337%23S%23Odgoj+i+obrazovanje",
+    "display_name": "Odgoj i obrazovanje",
+    "count": 588
+  },
+  "povijest": {
+    "url_param": "%23179%239400000000%2394%23S%23Opća+povijest",
+    "display_name": "Opća povijest",
+    "count": 510
+  },
+  "domaćinstvo": {
+    "url_param": "%23179%236400000000%2364%23S%23Domaćinstvo",
+    "display_name": "Domaćinstvo",
+    "count": 426
+  },
+  "domacinstvo": {
+    "url_param": "%23179%236400000000%2364%23S%23Domaćinstvo",
+    "display_name": "Domaćinstvo",
+    "count": 426
+  },
+  "sociologija": {
+    "url_param": "%23179%233160000000%23316%23S%23Demografija.+Sociologija",
+    "display_name": "Sociologija",
+    "count": 422
+  },
+  "geografija": {
+    "url_param": "%23179%2391000000000%2391%23S%23Geografija",
+    "display_name": "Geografija",
+    "count": 379
+  },
+  "biografije": {
+    "url_param": "%23179%2392000000000%2392%23S%23Biografske+i+srodne+studije",
+    "display_name": "Biografije",
+    "count": 372
+  },
+  "lingvistika": {
+    "url_param": "%23179%238000000000%2380%23S%23Lingvistika+i+jezici",
+    "display_name": "Lingvistika i jezici",
+    "count": 357
+  },
+  "jezici": {
+    "url_param": "%23179%238000000000%2380%23S%23Lingvistika+i+jezici",
+    "display_name": "Lingvistika i jezici",
+    "count": 357
+  },
+  "etnografija": {
+    "url_param": "%23179%233900000000%2339%23S%23Etnografija.+Običaji.+Tradicija.+Način+života.+Folklor",
+    "display_name": "Etnografija i folklor",
+    "count": 300
+  },
+  "folklor": {
+    "url_param": "%23179%233900000000%2339%23S%23Etnografija.+Običaji.+Tradicija.+Način+života.+Folklor",
+    "display_name": "Etnografija i folklor",
+    "count": 300
+  },
+  "glazba": {
+    "url_param": "%23179%237800000000%2378%23S%23Glazba+općenito",
+    "display_name": "Glazba",
+    "count": 296
+  },
+  "sport": {
+    "url_param": "%23179%237970000000%23797%23S%23Sport...na+vodi...u+zraku.+Konjički+sport.+Sportski+ribolov",
+    "display_name": "Sport",
+    "count": 290
+  },
+  "pravo": {
+    "url_param": "%23179%233400000000%2334%23S%23Pravo.+Pravna+znanost",
+    "display_name": "Pravo",
+    "count": 216
+  },
+  "filozofija": {
+    "url_param": "%23179%231590000000%23159%23S%23Filozofija+uma+i+filozofija+duha",
+    "display_name": "Filozofija",
+    "count": 211
+  },
+  "ekonomija": {
+    "url_param": "%23179%233300000000%2333%23S%23Ekonomija.+Ekonomska+znanost",
+    "display_name": "Ekonomija",
+    "count": 204
+  },
+  "zoologija": {
+    "url_param": "%23179%235900000000%2359%23S%23Zoologija",
+    "display_name": "Zoologija",
+    "count": 172
+  },
+  "slikarstvo": {
+    "url_param": "%23179%237500000000%2375%23S%23Slikarstvo",
+    "display_name": "Slikarstvo",
+    "count": 168
+  },
+  "računarstvo": {
+    "url_param": "%23179%230040000000%23004%23S%23Računarske+znanosti+i+tehnologije",
+    "display_name": "Računarstvo",
+    "count": 124
+  },
+  "racunarstvo": {
+    "url_param": "%23179%230040000000%23004%23S%23Računarske+znanosti+i+tehnologije",
+    "display_name": "Računarstvo",
+    "count": 124
+  },
+  "arhitektura": {
+    "url_param": "%23179%237200000000%2372%23S%23Arhitektura",
+    "display_name": "Arhitektura",
+    "count": 112
+  },
+  "biologija": {
+    "url_param": "%23179%235700000000%2357%23S%23Biologija",
+    "display_name": "Biologija",
+    "count": 110
+  },
+  "kazalište": {
+    "url_param": "%23179%237900000000%2379%23S%23Kazalište",
+    "display_name": "Kazalište",
+    "count": 98
+  },
+  "kazaliste": {
+    "url_param": "%23179%237900000000%2379%23S%23Kazalište",
+    "display_name": "Kazalište",
+    "count": 98
+  },
+  "fizika": {
+    "url_param": "%23179%235300000000%2353%23S%23Fizika+općenito",
+    "display_name": "Fizika",
+    "count": 92
+  },
+  "astronomija": {
+    "url_param": "%23179%235200000000%2352%23S%23Astronomija",
+    "display_name": "Astronomija",
+    "count": 91
+  },
+  "matematika": {
+    "url_param": "%23179%235100000000%2351%23S%23Matematika",
+    "display_name": "Matematika",
+    "count": 90
+  },
+  "botanika": {
+    "url_param": "%23179%235800000000%2358%23S%23Botanika",
+    "display_name": "Botanika",
+    "count": 76
+  },
+  "fotografija": {
+    "url_param": "%23179%237700000000%2377%23S%23Fotografija+i+srodni+postupci",
+    "display_name": "Fotografija",
+    "count": 66
+  },
+  "budizam": {
+    "url_param": "%23179%232400000000%2324%23S%23Budizam",
+    "display_name": "Budizam",
+    "count": 50
+  },
+  "islam": {
+    "url_param": "%23179%232800000000%2328%23S%23Islam",
+    "display_name": "Islam",
+    "count": 33
+  },
+  "kemija": {
+    "url_param": "%23179%235400000000%2354%23S%23Kemija+općenito",
+    "display_name": "Kemija",
+    "count": 33
+  },
+  "arheologija": {
+    "url_param": "%23179%23900000000000%2390%23S%23Arheologija",
+    "display_name": "Arheologija",
+    "count": 14
+  }
+}

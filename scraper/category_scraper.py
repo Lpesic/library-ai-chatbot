@@ -6,7 +6,7 @@ import httpx
 from bs4 import BeautifulSoup
 import logging
 from typing import List, Dict
-import os
+import os, json
 from dotenv import load_dotenv
 import re
 import random
@@ -134,6 +134,8 @@ class CategoryScraper:
             'ostalo': 'ostalo',
             'nekategorizirano': 'ostalo',
         }
+
+        self.udk_categories = self._load_udk_categories()
     
     def get_category_param(self, query: str) -> str:
         """Pronađi URL parametar za kategoriju"""
@@ -150,6 +152,127 @@ class CategoryScraper:
         
         return None
     
+    def _load_udk_categories(self) -> dict:
+        """Učitaj UDK kategorije iz JSON filea"""
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            udk_file = os.path.join(script_dir, 'udk_categories.json')
+            logger.info(f"Učitavam UDK iz: {udk_file}")
+
+            if not os.path.exists(udk_file):
+                logger.error(f"UDK file ne postoji: {udk_file}")
+                return {}
+            
+            with open(udk_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip() # Pročitaj i makni praznine
+                if not content:
+                    logger.error("UDK file je prazan!")
+                    return {}
+                
+                data = json.loads(content) # Koristimo loads na očišćeni string
+                logger.info(f"✓ Učitano {len(data)} UDK kategorija")
+                return data
+    
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON format nije ispravan: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju UDK kategorija: {e}")
+            return {}
+
+    async def get_items_by_subject(
+        self,
+        subject: str,
+        limit: int = 10,
+        random_selection: bool = True
+    ) -> List[Dict]:
+        """
+        Dohvati knjige po sadržaju/temi (UDK klasifikacija)
+        
+        Args:
+            subject: Tema (npr. 'psihologija', 'povijest', 'sport')
+            limit: Broj rezultata
+            random_selection: Random odabir
+            
+        Returns:
+            Lista knjiga
+        """
+        
+        try:
+            subject_lower = subject.lower().strip()
+            
+            # Pronađi UDK kategoriju
+            if subject_lower in self.udk_categories:
+                category_info = self.udk_categories[subject_lower]
+            else:
+                # Fuzzy matching - traži parcijalno podudaranje
+                logger.info(f"Fuzzy matching za: {subject_lower}")
+                
+                matched_key = None
+                for key in self.udk_categories.keys():
+                    if subject_lower in key or key in subject_lower:
+                        matched_key = key
+                        logger.info(f"Fuzzy match: '{subject_lower}' → '{matched_key}'")
+                        break
+                
+                if not matched_key:
+                    logger.warning(f"Nepoznata tema: {subject}")
+                    logger.info(f"Dostupni ključevi: {list(self.udk_categories.keys())[:10]}")
+                    return []
+                
+                category_info = self.udk_categories[matched_key]
+            
+            url_param = category_info['url_param']
+            display_name = category_info['display_name']
+            
+            logger.info(f"Tema '{subject}' → {display_name}")
+            
+            # URL za pretraživanje
+            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={url_param}"
+            
+            # Koristi ScraperAPI
+            if self.scraper_api_key:
+                params = {
+                    'api_key': self.scraper_api_key,
+                    'url': search_url,
+                    'country_code': 'hr'
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(
+                        "http://api.scraperapi.com/",
+                        params=params
+                    )
+            else:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(search_url)
+            
+            if response.status_code != 200:
+                logger.error(f"HTTP error: {response.status_code}")
+                return []
+            
+            logger.info(f"Response: {len(response.text)} bytes")
+            
+            # Parsiraj
+            soup = BeautifulSoup(response.text, 'html.parser')
+            items = self._parse_items(soup, limit * 3)
+            
+            logger.info(f"Parsirano {len(items)} knjiga")
+            
+            # Random selection
+            if random_selection and len(items) > limit:
+                items = random.sample(items, limit)
+            else:
+                items = items[:limit]
+            
+            return items
+        
+        except Exception as e:
+            logger.error(f"Greška pri dohvaćanju teme: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
     async def get_items_by_category(
         self, 
         category: str, 
@@ -229,6 +352,46 @@ class CategoryScraper:
             traceback.print_exc()
             return []
     
+    def format_subject_message(
+        self,
+        items: List[Dict],
+        subject: str
+    ) -> str:
+        """Formatira poruku sa knjigama po temi"""
+        
+        if not items:
+            return (f"Nažalost, nisam pronašao knjige iz područja **{subject}**.\n\n"
+                f"Provjerite katalog: https://katalog.halubajska-zora.hr")
+        
+        # Dohvati display name
+        display_name = subject
+        subject_lower = subject.lower()
+        if subject_lower in self.udk_categories:
+            display_name = self.udk_categories[subject_lower]['display_name']
+        
+        msg = f"📚 **Knjige iz područja: {display_name}**\n\n"
+        
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. **{item['title']}**"
+            
+            if item.get('author'):
+                msg += f"\n   ✍️ {item['author']}"
+            
+            if item.get('year'):
+                msg += f" ({item['year']})"
+            
+            if item.get('status'):
+                if item['status'] == 'Dostupno':
+                    msg += f"\n   ✅ {item['status']}"
+                elif item['status'] == 'Posuđeno':
+                    msg += f"\n   ❌ {item['status']}"
+            
+            msg += "\n\n"
+        
+        msg += f"🔗 Sve iz područja: https://katalog.halubajska-zora.hr"
+        
+        return msg
+
     async def get_most_read(
         self, 
         days: int = 30, 
@@ -455,47 +618,39 @@ class CategoryScraper:
         
         return msg
 
-
 # Test
 if __name__ == "__main__":
     import asyncio
-    import json
     
     async def test():
+        scraper = CategoryScraper()
         print("=" * 70)
         print("CATEGORY SCRAPER - TEST")
         print("=" * 70)
         
-        scraper = CategoryScraper()
-        
-        # Test različite kategorije
-        test_categories = ['igračke', 'grafika', 'e-book']
-        
-        for category in test_categories:
-            print(f"\n📦 Test kategorije: {category}")
-            print("-" * 70)
+        print(f"\nUkupno kategorija: {len(scraper.udk_categories)}")
+        print("\nPrvih 10 ključeva:")
+        for i, key in enumerate(list(scraper.udk_categories.keys())[:10]):
+            print(f"  {i+1}. '{key}'")
             
-            items = await scraper.get_items_by_category(
-                category=category,
-                limit=5,
-                random_selection=True
-            )
-
-            print(scraper.format_category_message(items, category))
-
             print("\n" + "=" * 70)
-            print("🔥 Test najčitanije: zadnjih 30 dana")
-            print("-" * 70)
-
-            most_read = await scraper.get_most_read(days=30, limit=5)
-
-            print("\nRAW DATA:")
-            print(json.dumps(most_read, indent=2, ensure_ascii=False))
-
-            print("\nRAW DATA:")
-            print(scraper.format_most_read_message(most_read, 30))
+            print("📚 TEST 3: PRETRAGA PO TEMAMA (UDK)")
+            print("=" * 70)
             
-            print("\nFORMATIRANA PORUKA:")
-            print("\n" + "=" * 70)
+            test_subjects = ['psihologija', 'sport', 'povijest', 'glazba']
+            
+            for subject in test_subjects:
+                print(f"\n📚 Tema: {subject}")
+                print("-" * 70)
+                
+            if subject in scraper.udk_categories:
+                print(f"✓ Pronađeno u JSON-u")
+                items = await scraper.get_items_by_subject(subject, limit=3)
+                print(f"Dohvaćeno: {len(items)} knjiga")
+            else:
+                print(f"✗ NIJE pronađeno u JSON-u")
+                print(f"Svi ključevi koji sadrže '{subject}':")
+                matches = [k for k in scraper.udk_categories.keys() if subject in k]
+                print(f"  {matches}")
     
     asyncio.run(test())

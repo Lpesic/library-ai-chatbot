@@ -324,6 +324,48 @@ async def generate_response(user_message: str) -> str:
         else:
             return "Trenutno nemam knjiga u bazi za preporuku. Provjerite katalog: https://katalog.halubajska-zora.hr"
     
+    # 2. TRAZENJE PO TEMI
+    if detected_category:
+        logger.info(f"KATEGORIJA: Detektirana - {detected_category}")
+        items = await category_scraper.get_items_by_category(
+            category=detected_category,
+            limit=5,
+            random_selection=True
+        )
+        return category_scraper.format_category_message(items, detected_category) 
+    
+    # PROVJERA: Je li tražena tema/sadržaj (UDK)
+    subject_keywords = [
+        'psihologi', 'medicin', 'politi', 'povijes', 'socio', 'geograf',
+        'biografij', 'lingvisti', 'jezik', 'etnograf', 'folklor', 'sport',
+        'prav', 'filozof', 'ekonomij', 'zoologi', 'slikarst', 'računarst',
+        'racunarst', 'arhitektur', 'biologi', 'kazališt', 'kazalist', 'fizik',
+        'astrono', 'matemati', 'botanik', 'fotograf', 'budiz', 'islam',
+        'kemij', 'arheologi', 'hrvatska književnost', 'hrvatska knjizevnost',
+        'književnost', 'knjizevnost', 'prolegomen', 'kršćanst', 'krscanst',
+        'odgoj', 'obrazovan', 'domaćinst', 'domacinst', 'glazb'
+    ]
+
+    detected_subject = None
+    for keyword in subject_keywords:
+        if keyword in query_lower:
+            # Pronađi punu formu teme
+            for udk_key in category_scraper.udk_categories.keys():
+                if keyword in udk_key or udk_key in query_lower:
+                    detected_subject = udk_key
+                    break
+            if detected_subject:
+                break
+
+    if detected_subject:
+        logger.info(f"TEMA: Detektirana - {detected_subject}")
+        items = await category_scraper.get_items_by_subject(
+            subject=detected_subject,
+            limit=8,
+            random_selection=True
+        )
+        return category_scraper.format_subject_message(items, detected_subject)            
+    
     # 2. Pitanja o knjižnici
     if any(word in query_lower for word in ['učlaniti', 'članarina', 'upis']):
         return ("📚 **Učlanjenje u knjižnicu**\n\n"
