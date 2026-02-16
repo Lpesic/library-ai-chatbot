@@ -199,7 +199,7 @@ class CategoryScraper:
         """
         
         try:
-            import urllib.parse
+            
             subject_lower = subject.lower().strip()
             
             # Pronađi UDK kategoriju
@@ -224,11 +224,14 @@ class CategoryScraper:
                 category_info = self.udk_categories[matched_key]
             
             url_param = category_info['url_param']
+            import urllib.parse
             encoded_param = urllib.parse.quote(url_param)
             display_name = category_info['display_name']
             
             logger.info(f"Tema '{subject}' → {display_name}")
             
+            if "%" in url_param:
+                url_param = urllib.parse.unquote(url_param)
             # URL za pretraživanje
             search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={encoded_param}"
             
@@ -512,7 +515,9 @@ class CategoryScraper:
         
         # Pronađi sve div-ove sa rezultatima
         item_divs = soup.find_all('div', class_='divBibZapis')
-        
+        if not item_divs:
+            item_divs = soup.select('.divBibZapis, [id*="divBibZapis"]')
+
         logger.info(f"Pronađeno {len(item_divs)} div-ova")
         
         for item_div in item_divs[:limit]:
@@ -523,10 +528,10 @@ class CategoryScraper:
                 
                 # Book/Item ID
                 item_id = None
-                if title_link and title_link.get('href'):
-                    match = re.search(r'selectedId=(\d+)', title_link['href'])
-                    if match:
-                        item_id = match.group(1)
+                href = title_link.get('href', '')
+                id_match = re.search(r'selectedId=(\d+)', href)
+                if id_match:
+                    item_id = id_match.group(1)
                 
                 # Autor (ako postoji)
                 author = None
