@@ -199,6 +199,7 @@ class CategoryScraper:
         """
         
         try:
+            import urllib.parse
             subject_lower = subject.lower().strip()
             
             # Pronađi UDK kategoriju
@@ -223,12 +224,13 @@ class CategoryScraper:
                 category_info = self.udk_categories[matched_key]
             
             url_param = category_info['url_param']
+            encoded_param = urllib.parse.quote(url_param)
             display_name = category_info['display_name']
             
             logger.info(f"Tema '{subject}' → {display_name}")
             
             # URL za pretraživanje
-            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={url_param}"
+            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={encoded_param}"
             
             # Koristi ScraperAPI
             if self.scraper_api_key:
