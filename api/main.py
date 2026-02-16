@@ -195,16 +195,21 @@ async def generate_response(user_message: str) -> str:
     """Generira odgovor na korisničku poruku (template-based)"""
     
     query_lower = user_message.lower()
+    detected_category = None
     #0. PROVJERA DOSTUPNOSTI 
     if any(word in query_lower for word in ['dostupn', 'posuden', 'je li', 'jel', 'ima li na', 'rezerv', 'status']):
         # Pokušaj pronaći naziv knjige
         # Jednostavna logika - traži knjigu po ključnim riječima
         keywords = extract_keywords(user_message)
 
-        if keywords:
+        if not keywords:
+            return ("Niste naveli naslov knjige. 🧐\n\n"
+                    "Molim vas napišite puni naslov ili autora.")
+        else:
             # 1. Prvo pretraži bazu za ID knjige
-            books = db.search_books(keywords[0], limit=3)
+            book_id = None
             
+            books = db.search_books(keywords[0], limit=3)
             if books:
                 book = books[0]
                 book_id = book['id']             
@@ -227,8 +232,6 @@ async def generate_response(user_message: str) -> str:
             except Exception as e:
                 logger.error(f"Greška pri provjeri dostupnosti: {e}")
                 return "Trenutno ne mogu provjeriti status knjige u katalogu."
-        else:
-            return f"Nisam pronašao knjigu '{keywords[0]}'. Molim unesite točan naslov ili provjerite katalog."
 
     # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
     if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
@@ -279,7 +282,6 @@ async def generate_response(user_message: str) -> str:
             'grafik': 'grafička građa',
         }
 
-        detected_category = None
         for keyword, category in category_keywords.items():
             if keyword in query_lower:
                 detected_category = category
