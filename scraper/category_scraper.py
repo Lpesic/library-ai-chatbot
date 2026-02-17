@@ -224,30 +224,19 @@ class CategoryScraper:
                 category_info = self.udk_categories[matched_key]
             
             url_param = category_info['url_param']
-            import urllib.parse
-            encoded_param = urllib.parse.quote(url_param)
             display_name = category_info['display_name']
-            
+            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={url_param}"
+
             logger.info(f"Tema '{subject}' → {display_name}")
-            
-            if "%" in url_param:
-                url_param = urllib.parse.unquote(url_param)
-            # URL za pretraživanje
-            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=14&fv0={encoded_param}"
-            
+
             # Koristi ScraperAPI
             if self.scraper_api_key:
-                params = {
-                    'api_key': self.scraper_api_key,
-                    'url': search_url,
-                    'country_code': 'hr'
-                }
-                
+                import urllib.parse
+                scraper_url = f"http://api.scraperapi.com/?api_key={self.scraper_api_key}&url={urllib.parse.quote(search_url, safe='')}&country_code=hr"
+                logger.info(f"ScraperAPI URL konstruiran")
+
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.get(
-                        "http://api.scraperapi.com/",
-                        params=params
-                    )
+                    response = await client.get(search_url)
             else:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(search_url)
@@ -515,10 +504,17 @@ class CategoryScraper:
         
         # Pronađi sve div-ove sa rezultatima
         item_divs = soup.find_all('div', class_='divBibZapis')
-        if not item_divs:
-            item_divs = soup.select('.divBibZapis, [id*="divBibZapis"]')
-
         logger.info(f"Pronađeno {len(item_divs)} div-ova")
+        
+        if not item_divs:
+            # Debug - ispiši što je u HTML-u
+            all_divs = soup.find_all('div', class_=True)
+            logger.info(f"Ukupno div-ova sa klasom: {len(all_divs)}")
+            for d in all_divs[:5]:
+                logger.info(f"  Div class: {d.get('class')}")
+            return items
+
+        
         
         for item_div in item_divs[:limit]:
             try:
@@ -569,7 +565,7 @@ class CategoryScraper:
                 if type_img and type_img.get('alt'):
                     item_type = type_img['alt']
                 
-                item_info = {
+                items.append ({
                     'title': title,
                     'author': author,
                     'publisher': publisher,
@@ -577,9 +573,8 @@ class CategoryScraper:
                     'status': status,
                     'type': item_type,
                     'item_id': item_id
-                }
+                })
                 
-                items.append(item_info)
                 logger.info(f"  {title} ({item_type})")
             
             except Exception as e:
