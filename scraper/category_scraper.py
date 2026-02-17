@@ -236,7 +236,7 @@ class CategoryScraper:
                 logger.info(f"ScraperAPI URL konstruiran")
 
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.get(search_url)
+                    response = await client.get(scraper_url)
             else:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(search_url)
