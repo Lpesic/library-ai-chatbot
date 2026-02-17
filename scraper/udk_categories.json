@@ -1,232 +1,382 @@
 {
   "književnost": {
-    "url_param": "%23179%238200000000%2382%23S%23Književnost",
+    "url_param": "%23179%238200000000%2382%23S%23Knji%c5%beevnost¤tPage=1",
     "display_name": "Književnost",
-    "count": 10898
-  },
-  "knjizevnost": {
-    "url_param": "%23179%238200000000%2382%23S%23Književnost",
-    "display_name": "Književnost",
-    "count": 10898
+    "count": 0
   },
   "hrvatska književnost": {
-    "url_param": "%23179%23821.163.42%23821.163.42%23S%23Hrvatska+književnost",
+    "url_param": "%23179%23821.163.42%23821.163.42%23S%23Hrvatska+knji%c5%beevnost¤tPage=1",
     "display_name": "Hrvatska književnost",
-    "count": 6538
-  },
-  "hrvatska knjizevnost": {
-    "url_param": "%23179%23821.163.42%23821.163.42%23S%23Hrvatska+književnost",
-    "display_name": "Hrvatska književnost",
-    "count": 6538
+    "count": 0
   },
   "psihologija": {
-    "url_param": "%23179%231590000000%23159%23S%23Psihologija",
+    "url_param": "%23179%23159.900000%23159.9%23S%23Psihologija¤tPage=1",
     "display_name": "Psihologija",
-    "count": 1442
+    "count": 0
   },
   "medicina": {
-    "url_param": "%23179%236100000000%2361%23S%23Medicina",
+    "url_param": "%23179%236100000000%2361%23S%23Medicina¤tPage=1",
     "display_name": "Medicina",
-    "count": 1391
+    "count": 0
   },
-  "crtanje": {
-    "url_param": "%23179%237400000000%2374%23S%23Crtanje.+Oblikovanje.+Primijenjena+umjetnost%2c+umjetnički+obrt",
-    "display_name": "Crtanje i oblikovanje",
-    "count": 1232
-  },
-  "umjetnost": {
-    "url_param": "%23179%237400000000%2374%23S%23Crtanje.+Oblikovanje.+Primijenjena+umjetnost%2c+umjetnički+obrt",
-    "display_name": "Crtanje i oblikovanje",
-    "count": 1232
+  "crtanje. oblikovanje. primijenjena umjetnost, umjetnički obrt": {
+    "url_param": "%23179%237400000000%2374%23S%23Crtanje.+Oblikovanje.+Primijenjena+umjetnost%2c+umjetni%c4%8dki+obrt¤tPage=1",
+    "display_name": "Crtanje. Oblikovanje. Primijenjena umjetnost, umjetnički obrt",
+    "count": 0
   },
   "politika": {
-    "url_param": "%23179%233200000000%2332%23S%23Politika",
+    "url_param": "%23179%233200000000%2332%23S%23Politika¤tPage=1",
     "display_name": "Politika",
-    "count": 665
+    "count": 0
   },
-  "prolegomena": {
-    "url_param": "%23179%230000000000%2300%23S%23Prolegomena.+Temelji+znanja+i+kulture",
-    "display_name": "Prolegomena",
-    "count": 603
+  "prolegomena. temelji znanja i kulture": {
+    "url_param": "%23179%230000000000%2300%23S%23Prolegomena.+Temelji+znanja+i+kulture¤tPage=1",
+    "display_name": "Prolegomena. Temelji znanja i kulture",
+    "count": 0
   },
   "kršćanstvo": {
-    "url_param": "%23179%232300000000%2323%23S%23Kršćanstvo",
+    "url_param": "%23179%232700000000%2327%23S%23Kr%c5%a1%c4%87anstvo¤tPage=1",
     "display_name": "Kršćanstvo",
-    "count": 589
+    "count": 0
   },
-  "krscanstvo": {
-    "url_param": "%23179%232300000000%2323%23S%23Kršćanstvo",
-    "display_name": "Kršćanstvo",
-    "count": 589
-  },
-  "odgoj": {
-    "url_param": "%23179%233700000000%2337%23S%23Odgoj+i+obrazovanje",
+  "odgoj i obrazovanje": {
+    "url_param": "%23179%233700000000%2337%23S%23Odgoj+i+obrazovanje¤tPage=1",
     "display_name": "Odgoj i obrazovanje",
-    "count": 588
+    "count": 0
   },
-  "obrazovanje": {
-    "url_param": "%23179%233700000000%2337%23S%23Odgoj+i+obrazovanje",
-    "display_name": "Odgoj i obrazovanje",
-    "count": 588
+  "poligrafije. zbornici": {
+    "url_param": "%23179%230800000000%2308%23S%23Poligrafije.+Zbornici¤tPage=1",
+    "display_name": "Poligrafije. Zbornici",
+    "count": 0
   },
-  "povijest": {
-    "url_param": "%23179%239400000000%2394%23S%23Opća+povijest",
+  "opća povijest": {
+    "url_param": "%23179%239400000000%2394%23S%23Op%c4%87a+povijest¤tPage=1",
     "display_name": "Opća povijest",
-    "count": 510
+    "count": 0
   },
   "domaćinstvo": {
-    "url_param": "%23179%236400000000%2364%23S%23Domaćinstvo",
+    "url_param": "%23179%236400000000%2364%23S%23Doma%c4%87instvo¤tPage=1",
     "display_name": "Domaćinstvo",
-    "count": 426
+    "count": 0
   },
-  "domacinstvo": {
-    "url_param": "%23179%236400000000%2364%23S%23Domaćinstvo",
-    "display_name": "Domaćinstvo",
-    "count": 426
+  "demografija. sociologija": {
+    "url_param": "%23179%233100000000%2331%23S%23Demografija.+Sociologija¤tPage=1",
+    "display_name": "Demografija. Sociologija",
+    "count": 0
   },
-  "sociologija": {
-    "url_param": "%23179%233160000000%23316%23S%23Demografija.+Sociologija",
-    "display_name": "Sociologija",
-    "count": 422
+  "poljoprivreda i šumarstvo. stočarstvo. lov. ribolov": {
+    "url_param": "%23179%236300000000%2363%23S%23Poljoprivreda+i+%c5%a1umarstvo.+Sto%c4%8darstvo.+Lov.+Ribolov¤tPage=1",
+    "display_name": "Poljoprivreda i šumarstvo. Stočarstvo. Lov. Ribolov",
+    "count": 0
   },
   "geografija": {
-    "url_param": "%23179%2391000000000%2391%23S%23Geografija",
+    "url_param": "%23179%239100000000%2391%23S%23Geografija¤tPage=1",
     "display_name": "Geografija",
-    "count": 379
+    "count": 0
   },
-  "biografije": {
-    "url_param": "%23179%2392000000000%2392%23S%23Biografske+i+srodne+studije",
-    "display_name": "Biografije",
-    "count": 372
+  "biografske i srodne studije": {
+    "url_param": "%23179%239290000000%23929%23S%23Biografske+i+srodne+studije¤tPage=1",
+    "display_name": "Biografske i srodne studije",
+    "count": 0
   },
-  "lingvistika": {
-    "url_param": "%23179%238000000000%2380%23S%23Lingvistika+i+jezici",
+  "povijest": {
+    "url_param": "%23179%239300000000%2393%23S%23Povijest¤tPage=1",
+    "display_name": "Povijest",
+    "count": 0
+  },
+  "lingvistika i jezici": {
+    "url_param": "%23179%238100000000%2381%23S%23Lingvistika+i+jezici¤tPage=1",
     "display_name": "Lingvistika i jezici",
-    "count": 357
+    "count": 0
   },
-  "jezici": {
-    "url_param": "%23179%238000000000%2380%23S%23Lingvistika+i+jezici",
-    "display_name": "Lingvistika i jezici",
-    "count": 357
+  "etnografija. običaji. tradicija. način života. folklor": {
+    "url_param": "%23179%233900000000%2339%23S%23Etnografija.+Obi%c4%8daji.+Tradicija.+Na%c4%8din+%c5%beivota.+Folklor¤tPage=1",
+    "display_name": "Etnografija. Običaji. Tradicija. Način života. Folklor",
+    "count": 0
   },
-  "etnografija": {
-    "url_param": "%23179%233900000000%2339%23S%23Etnografija.+Običaji.+Tradicija.+Način+života.+Folklor",
-    "display_name": "Etnografija i folklor",
-    "count": 300
+  "glazba općenito": {
+    "url_param": "%23179%237800000000%2378%23S%23Glazba+op%c4%87enito¤tPage=1",
+    "display_name": "Glazba općenito",
+    "count": 0
   },
-  "folklor": {
-    "url_param": "%23179%233900000000%2339%23S%23Etnografija.+Običaji.+Tradicija.+Način+života.+Folklor",
-    "display_name": "Etnografija i folklor",
-    "count": 300
+  "sport...na vodi...u zraku. konjički sport. sportski ribolov": {
+    "url_param": "%23179%237960000000%23796%23S%23Sport...na+vodi...u+zraku.+Konji%c4%8dki+sport.+Sportski+ribolov¤tPage=1",
+    "display_name": "Sport...na vodi...u zraku. Konjički sport. Sportski ribolov",
+    "count": 0
   },
-  "glazba": {
-    "url_param": "%23179%237800000000%2378%23S%23Glazba+općenito",
-    "display_name": "Glazba",
-    "count": 296
+  "javna uprava. državno ustrojstvo. vojni poslovi": {
+    "url_param": "%23179%233500000000%2335%23S%23Javna+uprava.+Dr%c5%beavno+ustrojstvo.+Vojni+poslovi¤tPage=1",
+    "display_name": "Javna uprava. Državno ustrojstvo. Vojni poslovi",
+    "count": 0
   },
-  "sport": {
-    "url_param": "%23179%237970000000%23797%23S%23Sport...na+vodi...u+zraku.+Konjički+sport.+Sportski+ribolov",
-    "display_name": "Sport",
-    "count": 290
+  "pravo. pravna znanost": {
+    "url_param": "%23179%233400000000%2334%23S%23Pravo.+Pravna+znanost¤tPage=1",
+    "display_name": "Pravo. Pravna znanost",
+    "count": 0
   },
-  "pravo": {
-    "url_param": "%23179%233400000000%2334%23S%23Pravo.+Pravna+znanost",
-    "display_name": "Pravo",
-    "count": 216
+  "filozofija uma i filozofija duha": {
+    "url_param": "%23179%231300000000%2313%23S%23Filozofija+uma+i+filozofija+duha¤tPage=1",
+    "display_name": "Filozofija uma i filozofija duha",
+    "count": 0
   },
-  "filozofija": {
-    "url_param": "%23179%231590000000%23159%23S%23Filozofija+uma+i+filozofija+duha",
-    "display_name": "Filozofija",
-    "count": 211
-  },
-  "ekonomija": {
-    "url_param": "%23179%233300000000%2333%23S%23Ekonomija.+Ekonomska+znanost",
-    "display_name": "Ekonomija",
-    "count": 204
+  "ekonomija. ekonomska znanost": {
+    "url_param": "%23179%233300000000%2333%23S%23Ekonomija.+Ekonomska+znanost¤tPage=1",
+    "display_name": "Ekonomija. Ekonomska znanost",
+    "count": 0
   },
   "zoologija": {
-    "url_param": "%23179%235900000000%2359%23S%23Zoologija",
+    "url_param": "%23179%235900000000%2359%23S%23Zoologija¤tPage=1",
     "display_name": "Zoologija",
-    "count": 172
+    "count": 0
   },
   "slikarstvo": {
-    "url_param": "%23179%237500000000%2375%23S%23Slikarstvo",
+    "url_param": "%23179%237500000000%2375%23S%23Slikarstvo¤tPage=1",
     "display_name": "Slikarstvo",
-    "count": 168
+    "count": 0
   },
-  "računarstvo": {
-    "url_param": "%23179%230040000000%23004%23S%23Računarske+znanosti+i+tehnologije",
-    "display_name": "Računarstvo",
-    "count": 124
+  "menadžment i organizacija industrije, trgovine i komunikacija": {
+    "url_param": "%23179%236500000000%2365%23S%23Menad%c5%bement+i+organizacija+industrije%2c+trgovine+i+komunikacija¤tPage=1",
+    "display_name": "Menadžment i organizacija industrije, trgovine i komunikacija",
+    "count": 0
   },
-  "racunarstvo": {
-    "url_param": "%23179%230040000000%23004%23S%23Računarske+znanosti+i+tehnologije",
-    "display_name": "Računarstvo",
-    "count": 124
+  "regionalne monografije.": {
+    "url_param": "%23179%239080000000%23908%23S%23Regionalne+monografije.¤tPage=1",
+    "display_name": "Regionalne monografije.",
+    "count": 0
+  },
+  "inženjerstvo. tehnika": {
+    "url_param": "%23179%236200000000%2362%23S%23In%c5%beenjerstvo.+Tehnika¤tPage=1",
+    "display_name": "Inženjerstvo. Tehnika",
+    "count": 0
+  },
+  "deskriptivne prirodne znanosti. opća razmatranja": {
+    "url_param": "%23179%235000000000%2350%23S%23Deskriptivne+prirodne+znanosti.+Op%c4%87a+razmatranja¤tPage=1",
+    "display_name": "Deskriptivne prirodne znanosti. Opća razmatranja",
+    "count": 0
+  },
+  "priroda. proučavanje i zaštita": {
+    "url_param": "%23179%235020000000%23502%23S%23Priroda.+Prou%c4%8davanje+i+za%c5%a1tita¤tPage=1",
+    "display_name": "Priroda. Proučavanje i zaštita",
+    "count": 0
+  },
+  "računarske znanosti i tehnologije": {
+    "url_param": "%23179%230040000000%23004%23S%23Ra%c4%8dunarske+znanosti+i+tehnologije¤tPage=1",
+    "display_name": "Računarske znanosti i tehnologije",
+    "count": 0
+  },
+  "moralna filozofija. etika. praktična filozofija": {
+    "url_param": "%23179%231700000000%2317%23S%23Moralna+filozofija.+Etika.+Prakti%c4%8dna+filozofija¤tPage=1",
+    "display_name": "Moralna filozofija. Etika. Praktična filozofija",
+    "count": 0
+  },
+  "umjetnost općenito": {
+    "url_param": "%23179%237.00000000%237.0%23S%23Umjetnost+op%c4%87enito¤tPage=1",
+    "display_name": "Umjetnost općenito",
+    "count": 0
+  },
+  "problemi okultnog": {
+    "url_param": "%23179%231330000000%23133%23S%23Problemi+okultnog¤tPage=1",
+    "display_name": "Problemi okultnog",
+    "count": 0
   },
   "arhitektura": {
-    "url_param": "%23179%237200000000%2372%23S%23Arhitektura",
+    "url_param": "%23179%237200000000%2372%23S%23Arhitektura¤tPage=1",
     "display_name": "Arhitektura",
-    "count": 112
+    "count": 0
+  },
+  "knjižničarstvo. znanost o knjižničarstvu": {
+    "url_param": "%23179%230200000000%2302%23S%23Knji%c5%beni%c4%8darstvo.+Znanost+o+knji%c5%beni%c4%8darstvu¤tPage=1",
+    "display_name": "Knjižničarstvo. Znanost o knjižničarstvu",
+    "count": 0
   },
   "biologija": {
-    "url_param": "%23179%235700000000%2357%23S%23Biologija",
+    "url_param": "%23179%235700000000%2357%23S%23Biologija¤tPage=1",
     "display_name": "Biologija",
-    "count": 110
+    "count": 0
+  },
+  "filozofski sistemi i gledišta": {
+    "url_param": "%23179%231400000000%2314%23S%23Filozofski+sistemi+i+gledi%c5%a1ta¤tPage=1",
+    "display_name": "Filozofski sistemi i gledišta",
+    "count": 0
   },
   "kazalište": {
-    "url_param": "%23179%237900000000%2379%23S%23Kazalište",
+    "url_param": "%23179%237920000000%23792%23S%23Kazali%c5%a1te¤tPage=1",
     "display_name": "Kazalište",
-    "count": 98
+    "count": 0
   },
-  "kazaliste": {
-    "url_param": "%23179%237900000000%2379%23S%23Kazalište",
-    "display_name": "Kazalište",
-    "count": 98
-  },
-  "fizika": {
-    "url_param": "%23179%235300000000%2353%23S%23Fizika+općenito",
-    "display_name": "Fizika",
-    "count": 92
+  "fizika općenito": {
+    "url_param": "%23179%235300000000%2353%23S%23Fizika+op%c4%87enito¤tPage=1",
+    "display_name": "Fizika općenito",
+    "count": 0
   },
   "astronomija": {
-    "url_param": "%23179%235200000000%2352%23S%23Astronomija",
+    "url_param": "%23179%235200000000%2352%23S%23Astronomija¤tPage=1",
     "display_name": "Astronomija",
-    "count": 91
+    "count": 0
   },
   "matematika": {
-    "url_param": "%23179%235100000000%2351%23S%23Matematika",
+    "url_param": "%23179%235100000000%2351%23S%23Matematika¤tPage=1",
     "display_name": "Matematika",
-    "count": 90
+    "count": 0
+  },
+  "teorija, metodologija i metode društvenih znanosti": {
+    "url_param": "%23179%233000000000%2330%23S%23Teorija%2c+metodologija+i+metode+dru%c5%a1tvenih+znanosti¤tPage=1",
+    "display_name": "Teorija, metodologija i metode društvenih znanosti",
+    "count": 0
+  },
+  "geologija. meteorologija. hidrologija": {
+    "url_param": "%23179%235500000000%2355%23S%23Geologija.+Meteorologija.+Hidrologija¤tPage=1",
+    "display_name": "Geologija. Meteorologija. Hidrologija",
+    "count": 0
   },
   "botanika": {
-    "url_param": "%23179%235800000000%2358%23S%23Botanika",
+    "url_param": "%23179%235800000000%2358%23S%23Botanika¤tPage=1",
     "display_name": "Botanika",
-    "count": 76
+    "count": 0
   },
-  "fotografija": {
-    "url_param": "%23179%237700000000%2377%23S%23Fotografija+i+srodni+postupci",
-    "display_name": "Fotografija",
-    "count": 66
+  "organizacije i druge vrste suradnje": {
+    "url_param": "%23179%230600000000%2306%23S%23Organizacije+i+druge+vrste+suradnje¤tPage=1",
+    "display_name": "Organizacije i druge vrste suradnje",
+    "count": 0
+  },
+  "drevne religije. manji kultovi i religije": {
+    "url_param": "%23179%232500000000%2325%23S%23Drevne+religije.+Manji+kultovi+i+religije¤tPage=1",
+    "display_name": "Drevne religije. Manji kultovi i religije",
+    "count": 0
+  },
+  "fotografija i srodni postupci": {
+    "url_param": "%23179%237700000000%2377%23S%23Fotografija+i+srodni+postupci¤tPage=1",
+    "display_name": "Fotografija i srodni postupci",
+    "count": 0
+  },
+  "kemijska i srodne industrije": {
+    "url_param": "%23179%236600000000%2366%23S%23Kemijska+i+srodne+industrije¤tPage=1",
+    "display_name": "Kemijska i srodne industrije",
+    "count": 0
   },
   "budizam": {
-    "url_param": "%23179%232400000000%2324%23S%23Budizam",
+    "url_param": "%23179%232400000000%2324%23S%23Budizam¤tPage=1",
     "display_name": "Budizam",
-    "count": 50
+    "count": 0
+  },
+  "religije porijeklom s indijskog potkontinenta": {
+    "url_param": "%23179%232300000000%2323%23S%23Religije+porijeklom+s+Indijskog+potkontinenta¤tPage=1",
+    "display_name": "Religije porijeklom s Indijskog potkontinenta",
+    "count": 0
+  },
+  "osiguranje dobara i materijalnih potreba. socijani rad. socijalna pomoć": {
+    "url_param": "%23179%233600000000%2336%23S%23Osiguranje+dobara+i+materijalnih+potreba.+Socijani+rad.+Socijalna+pomo%c4%87¤tPage=1",
+    "display_name": "Osiguranje dobara i materijalnih potreba. Socijani rad. Socijalna pomoć",
+    "count": 0
+  },
+  "industrije, obrti i zanati za dovršavanje i sastavljanje predmeta": {
+    "url_param": "%23179%236800000000%2368%23S%23Industrije%2c+obrti+i+zanati+za+dovr%c5%a1avanje+i+sastavljanje+predmeta¤tPage=1",
+    "display_name": "Industrije, obrti i zanati za dovršavanje i sastavljanje predmeta",
+    "count": 0
+  },
+  "prostorno planiranje. regionalno, urbano i ruralno planiranje...": {
+    "url_param": "%23179%237100000000%2371%23S%23Prostorno+planiranje.+Regionalno%2c+urbano+i+ruralno+planiranje...¤tPage=1",
+    "display_name": "Prostorno planiranje. Regionalno, urbano i ruralno planiranje...",
+    "count": 0
   },
   "islam": {
-    "url_param": "%23179%232800000000%2328%23S%23Islam",
+    "url_param": "%23179%232800000000%2328%23S%23Islam¤tPage=1",
     "display_name": "Islam",
-    "count": 33
+    "count": 0
   },
-  "kemija": {
-    "url_param": "%23179%235400000000%2354%23S%23Kemija+općenito",
-    "display_name": "Kemija",
-    "count": 33
+  "kemija općenito": {
+    "url_param": "%23179%235400000000%2354%23S%23Kemija+op%c4%87enito¤tPage=1",
+    "display_name": "Kemija općenito",
+    "count": 0
+  },
+  "paleontologija": {
+    "url_param": "%23179%235600000000%2356%23S%23Paleontologija¤tPage=1",
+    "display_name": "Paleontologija",
+    "count": 0
+  },
+  "metafizika": {
+    "url_param": "%23179%231100000000%2311%23S%23Metafizika¤tPage=1",
+    "display_name": "Metafizika",
+    "count": 0
+  },
+  "logika.epistemologija. spoznajna torija. logička metodologija": {
+    "url_param": "%23179%231600000000%2316%23S%23Logika.Epistemologija.+Spoznajna+torija.+Logi%c4%8dka+metodologija¤tPage=1",
+    "display_name": "Logika.Epistemologija. Spoznajna torija. Logička metodologija",
+    "count": 0
+  },
+  "kiparstvo i srodne umjetnost": {
+    "url_param": "%23179%237300000000%2373%23S%23Kiparstvo+i+srodne+umjetnost¤tPage=1",
+    "display_name": "Kiparstvo i srodne umjetnost",
+    "count": 0
+  },
+  "novine i novinarstvo": {
+    "url_param": "%23179%230700000000%2307%23S%23Novine+i+novinarstvo¤tPage=1",
+    "display_name": "Novine i novinarstvo",
+    "count": 0
+  },
+  "grafička. umjetnost. grafika": {
+    "url_param": "%23179%237600000000%2376%23S%23Grafi%c4%8dka.+Umjetnost.+Grafika¤tPage=1",
+    "display_name": "Grafička. Umjetnost. Grafika",
+    "count": 0
   },
   "arheologija": {
-    "url_param": "%23179%23900000000000%2390%23S%23Arheologija",
+    "url_param": "%23179%239020000000%23902%23S%23Arheologija¤tPage=1",
     "display_name": "Arheologija",
-    "count": 14
+    "count": 0
+  },
+  "židovstvo": {
+    "url_param": "%23179%232600000000%2326%23S%23%c5%bdidovstvo¤tPage=1",
+    "display_name": "Židovstvo",
+    "count": 0
+  },
+  "rukopisi. rijetka i značajna djela": {
+    "url_param": "%23179%230900000000%2309%23S%23Rukopisi.+Rijetka+i+zna%c4%8dajna+djela¤tPage=1",
+    "display_name": "Rukopisi. Rijetka i značajna djela",
+    "count": 0
+  },
+  "pretpovijesne religije": {
+    "url_param": "%23179%232100000000%2321%23S%23Pretpovijesne+religije¤tPage=1",
+    "display_name": "Pretpovijesne religije",
+    "count": 0
+  },
+  "građevinski radovi": {
+    "url_param": "%23179%236900000000%2369%23S%23Gra%c4%91evinski+radovi¤tPage=1",
+    "display_name": "Građevinski radovi",
+    "count": 0
+  },
+  "bibliografija i bibliografije. katalozi": {
+    "url_param": "%23179%230100000000%2301%23S%23Bibliografija+i+bibliografije.+Katalozi¤tPage=1",
+    "display_name": "Bibliografija i bibliografije. Katalozi",
+    "count": 0
+  },
+  "mehanička tehnologija općenito": {
+    "url_param": "%23179%236700000000%2367%23S%23Mehani%c4%8dka+tehnologija+op%c4%87enito¤tPage=1",
+    "display_name": "Mehanička tehnologija općenito",
+    "count": 0
+  },
+  "religije porijeklom s dalekog istoka": {
+    "url_param": "%23179%232200000000%2322%23S%23Religije+porijeklom+s+Dalekog+istoka¤tPage=1",
+    "display_name": "Religije porijeklom s Dalekog istoka",
+    "count": 0
+  },
+  "suvremeni duhovni pokreti": {
+    "url_param": "%23179%232900000000%2329%23S%23Suvremeni+duhovni+pokreti¤tPage=1",
+    "display_name": "Suvremeni duhovni pokreti",
+    "count": 0
+  },
+  "pojedine grane metafizike": {
+    "url_param": "%23179%23122%2f129000%23122%2f129%23S%23Pojedine+grane+metafizike¤tPage=1",
+    "display_name": "Pojedine grane metafizike",
+    "count": 0
+  },
+  "enciklopedije. leksikoni. priručnici": {
+    "url_param": "%23179%230300000000%23030%23S%23Enciklopedije.+Leksikoni.+Priru%c4%8dnici¤tPage=1",
+    "display_name": "Enciklopedije. Leksikoni. Priručnici",
+    "count": 0
+  },
+  "serijske publikacije": {
+    "url_param": "%23179%230500000000%23050%23S%23Serijske+publikacije¤tPage=1",
+    "display_name": "Serijske publikacije",
+    "count": 0
   }
 }
