@@ -208,13 +208,17 @@ def fetch_languages():
         if not display_name or not href:
             continue
         
-        # Izvuci fv0 parametar
+        #print(f"DEBUG href: {href[:100]}")
         fv0_match = re.search(r'fv0=(.+?)(?:&currentPage=\d+|&amp;currentPage=\d+|$)', href)
         if not fv0_match:
             continue
         
-        url_param = fv0_match.group(1).strip().rstrip('&')
-        
+        url_param = fv0_match.group(1).strip()
+        if '¤' in url_param:
+            url_param = url_param.split('¤')[0]
+
+        url_param = url_param.rstrip('&').rstrip()
+
         # Broj zapisa
         parent = link.find_parent('div', class_='fasetaWrap')
         count = 0
@@ -287,3 +291,4 @@ if __name__ == "__main__":
     languages = fetch_languages()
     if languages:
         save_languages(languages)
+    

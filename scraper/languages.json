@@ -1,276 +1,276 @@
 {
   "hrvatski": {
-    "url_param": "hrvatski¤tPage=1",
+    "url_param": "hrvatski",
     "display_name": "hrvatski",
     "count": 32007
   },
   "engleski": {
-    "url_param": "engleski¤tPage=1",
+    "url_param": "engleski",
     "display_name": "engleski",
     "count": 493
   },
   "srpski": {
-    "url_param": "srpski¤tPage=1",
+    "url_param": "srpski",
     "display_name": "srpski",
     "count": 165
   },
   "bosanski": {
-    "url_param": "bosanski¤tPage=1",
+    "url_param": "bosanski",
     "display_name": "bosanski",
     "count": 96
   },
   "talijanski": {
-    "url_param": "talijanski¤tPage=1",
+    "url_param": "talijanski",
     "display_name": "talijanski",
     "count": 90
   },
   "njemački": {
-    "url_param": "njema%c4%8dki¤tPage=1",
+    "url_param": "njema%c4%8dki",
     "display_name": "njemački",
     "count": 63
   },
   "njemacki": {
-    "url_param": "njema%c4%8dki¤tPage=1",
+    "url_param": "njema%c4%8dki",
     "display_name": "njemački",
     "count": 63
   },
   "latinski": {
-    "url_param": "latinski¤tPage=1",
+    "url_param": "latinski",
     "display_name": "latinski",
     "count": 31
   },
   "francuski": {
-    "url_param": "francuski¤tPage=1",
+    "url_param": "francuski",
     "display_name": "francuski",
     "count": 25
   },
   "višejezični": {
-    "url_param": "vi%c5%a1ejezi%c4%8dni¤tPage=1",
+    "url_param": "vi%c5%a1ejezi%c4%8dni",
     "display_name": "višejezični",
     "count": 16
   },
   "visejezicni": {
-    "url_param": "vi%c5%a1ejezi%c4%8dni¤tPage=1",
+    "url_param": "vi%c5%a1ejezi%c4%8dni",
     "display_name": "višejezični",
     "count": 16
   },
   "španjolski": {
-    "url_param": "%c5%a1panjolski¤tPage=1",
+    "url_param": "%c5%a1panjolski",
     "display_name": "španjolski",
     "count": 15
   },
   "spanjolski": {
-    "url_param": "%c5%a1panjolski¤tPage=1",
+    "url_param": "%c5%a1panjolski",
     "display_name": "španjolski",
     "count": 15
   },
   "crnogorski": {
-    "url_param": "crnogorski¤tPage=1",
+    "url_param": "crnogorski",
     "display_name": "crnogorski",
     "count": 12
   },
   "slovenski": {
-    "url_param": "slovenski¤tPage=1",
+    "url_param": "slovenski",
     "display_name": "slovenski",
     "count": 11
   },
   "grčki": {
-    "url_param": "gr%c4%8dki¤tPage=1",
+    "url_param": "gr%c4%8dki",
     "display_name": "grčki",
     "count": 5
   },
   "grcki": {
-    "url_param": "gr%c4%8dki¤tPage=1",
+    "url_param": "gr%c4%8dki",
     "display_name": "grčki",
     "count": 5
   },
   "kajkavsko narječje": {
-    "url_param": "kajkavsko+narje%c4%8dje¤tPage=1",
+    "url_param": "kajkavsko+narje%c4%8dje",
     "display_name": "kajkavsko narječje",
     "count": 4
   },
   "kajkavsko narjecje": {
-    "url_param": "kajkavsko+narje%c4%8dje¤tPage=1",
+    "url_param": "kajkavsko+narje%c4%8dje",
     "display_name": "kajkavsko narječje",
     "count": 4
   },
   "ruski": {
-    "url_param": "ruski¤tPage=1",
+    "url_param": "ruski",
     "display_name": "ruski",
     "count": 4
   },
   "starogrčki (do 1453.)": {
-    "url_param": "starogr%c4%8dki+(do+1453.)¤tPage=1",
+    "url_param": "starogr%c4%8dki+(do+1453.)",
     "display_name": "starogrčki (do 1453.)",
     "count": 4
   },
   "starogrcki (do 1453.)": {
-    "url_param": "starogr%c4%8dki+(do+1453.)¤tPage=1",
+    "url_param": "starogr%c4%8dki+(do+1453.)",
     "display_name": "starogrčki (do 1453.)",
     "count": 4
   },
   "makedonski": {
-    "url_param": "makedonski¤tPage=1",
+    "url_param": "makedonski",
     "display_name": "makedonski",
     "count": 3
   },
   "portugalski": {
-    "url_param": "portugalski¤tPage=1",
+    "url_param": "portugalski",
     "display_name": "portugalski",
     "count": 3
   },
   "romski": {
-    "url_param": "romski¤tPage=1",
+    "url_param": "romski",
     "display_name": "romski",
     "count": 3
   },
   "slovački": {
-    "url_param": "slova%c4%8dki¤tPage=1",
+    "url_param": "slova%c4%8dki",
     "display_name": "slovački",
     "count": 3
   },
   "slovacki": {
-    "url_param": "slova%c4%8dki¤tPage=1",
+    "url_param": "slova%c4%8dki",
     "display_name": "slovački",
     "count": 3
   },
   "češki": {
-    "url_param": "%c4%8de%c5%a1ki¤tPage=1",
+    "url_param": "%c4%8de%c5%a1ki",
     "display_name": "češki",
     "count": 3
   },
   "ceski": {
-    "url_param": "%c4%8de%c5%a1ki¤tPage=1",
+    "url_param": "%c4%8de%c5%a1ki",
     "display_name": "češki",
     "count": 3
   },
   "hebrejski": {
-    "url_param": "hebrejski¤tPage=1",
+    "url_param": "hebrejski",
     "display_name": "hebrejski",
     "count": 2
   },
   "kineski": {
-    "url_param": "kineski¤tPage=1",
+    "url_param": "kineski",
     "display_name": "kineski",
     "count": 2
   },
   "mađarski": {
-    "url_param": "ma%c4%91arski¤tPage=1",
+    "url_param": "ma%c4%91arski",
     "display_name": "mađarski",
     "count": 2
   },
   "madarski": {
-    "url_param": "ma%c4%91arski¤tPage=1",
+    "url_param": "ma%c4%91arski",
     "display_name": "mađarski",
     "count": 2
   },
   "poljski": {
-    "url_param": "poljski¤tPage=1",
+    "url_param": "poljski",
     "display_name": "poljski",
     "count": 2
   },
   "ukrajinski": {
-    "url_param": "ukrajinski¤tPage=1",
+    "url_param": "ukrajinski",
     "display_name": "ukrajinski",
     "count": 2
   },
   "albanski": {
-    "url_param": "albanski¤tPage=1",
+    "url_param": "albanski",
     "display_name": "albanski",
     "count": 1
   },
   "esperanto": {
-    "url_param": "esperanto¤tPage=1",
+    "url_param": "esperanto",
     "display_name": "esperanto",
     "count": 1
   },
   "finski": {
-    "url_param": "finski¤tPage=1",
+    "url_param": "finski",
     "display_name": "finski",
     "count": 1
   },
   "gruzijski": {
-    "url_param": "gruzijski¤tPage=1",
+    "url_param": "gruzijski",
     "display_name": "gruzijski",
     "count": 1
   },
   "spanjolskom": {
-    "url_param": "%c5%a1panjolski¤tPage=1",
+    "url_param": "%c5%a1panjolski",
     "display_name": "španjolski",
     "count": 15
   },
   "slavenski": {
-    "url_param": "slovenski¤tPage=1",
+    "url_param": "slovenski",
     "display_name": "slovenski",
     "count": 11
   },
   "madjarski": {
-    "url_param": "ma%c4%91arski¤tPage=1",
+    "url_param": "ma%c4%91arski",
     "display_name": "mađarski",
     "count": 2
   },
   "english": {
-    "url_param": "engleski¤tPage=1",
+    "url_param": "engleski",
     "display_name": "engleski",
     "count": 493
   },
   "german": {
-    "url_param": "njema%c4%8dki¤tPage=1",
+    "url_param": "njema%c4%8dki",
     "display_name": "njemački",
     "count": 63
   },
   "italian": {
-    "url_param": "talijanski¤tPage=1",
+    "url_param": "talijanski",
     "display_name": "talijanski",
     "count": 90
   },
   "french": {
-    "url_param": "francuski¤tPage=1",
+    "url_param": "francuski",
     "display_name": "francuski",
     "count": 25
   },
   "spanish": {
-    "url_param": "%c5%a1panjolski¤tPage=1",
+    "url_param": "%c5%a1panjolski",
     "display_name": "španjolski",
     "count": 15
   },
   "greek": {
-    "url_param": "gr%c4%8dki¤tPage=1",
+    "url_param": "gr%c4%8dki",
     "display_name": "grčki",
     "count": 5
   },
   "latin": {
-    "url_param": "latinski¤tPage=1",
+    "url_param": "latinski",
     "display_name": "latinski",
     "count": 31
   },
   "croatian": {
-    "url_param": "hrvatski¤tPage=1",
+    "url_param": "hrvatski",
     "display_name": "hrvatski",
     "count": 32007
   },
   "serbian": {
-    "url_param": "srpski¤tPage=1",
+    "url_param": "srpski",
     "display_name": "srpski",
     "count": 165
   },
   "bosnian": {
-    "url_param": "bosanski¤tPage=1",
+    "url_param": "bosanski",
     "display_name": "bosanski",
     "count": 96
   },
   "slovene": {
-    "url_param": "slovenski¤tPage=1",
+    "url_param": "slovenski",
     "display_name": "slovenski",
     "count": 11
   },
   "russian": {
-    "url_param": "ruski¤tPage=1",
+    "url_param": "ruski",
     "display_name": "ruski",
     "count": 4
   },
   "chinese": {
-    "url_param": "kineski¤tPage=1",
+    "url_param": "kineski",
     "display_name": "kineski",
     "count": 2
   }
