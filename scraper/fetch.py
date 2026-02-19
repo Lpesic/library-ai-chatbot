@@ -141,6 +141,130 @@ def save_categories(categories):
     
     print(f"\n✓ Spremljeno u: {output_file}")
 
+def fetch_languages():
+    """Dohvati sve jezike sa katalog stranice"""
+    
+    url = "https://katalog.halubajska-zora.hr/pagesMisc/Katalog.aspx"
+    
+    print(f"\nDohvaćam jezike sa: {url}")
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    
+    response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers)
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # Pronađi sve linkove sa fid0=5 (jezik)
+    links_with_fid5 = soup.find_all('a', href=re.compile('fid0=5'))
+    print(f"Pronađeno {len(links_with_fid5)} jezika\n")
+    
+    languages = {}
+    
+    # Aliasi
+    aliases = {
+        'njemacki': 'njemački',
+        'spanjolski': 'španjolski',
+        'spanjolskom': 'španjolski',
+        'slavenski': 'slovenski',
+        'ceski': 'češki',
+        'madjarski': 'mađarski',
+        'engleski': 'engleski',
+        'english': 'engleski',
+        'njemacki': 'njemački',
+        'german': 'njemački',
+        'talijanski': 'talijanski',
+        'italian': 'talijanski',
+        'francuski': 'francuski',
+        'french': 'francuski',
+        'spanjolski': 'španjolski',
+        'spanish': 'španjolski',
+        'grcki': 'grčki',
+        'greek': 'grčki',
+        'latin': 'latinski',
+        'bosanski': 'bosanski',
+        'srpski': 'srpski',
+        'hrvatski': 'hrvatski',
+        'croatian': 'hrvatski',
+        'serbian': 'srpski',
+        'bosnian': 'bosanski',
+        'slavenski': 'slovenski',
+        'slovene': 'slovenski',
+        'crnogorski': 'crnogorski',
+        'makedonski': 'makedonski',
+        'ruski': 'ruski',
+        'russian': 'ruski',
+        'kineski': 'kineski',
+        'chinese': 'kineski',
+        'japanski': 'japanski',
+        'japanese': 'japanski',
+    }
+    
+    for link in links_with_fid5:
+        href = link.get('href', '')
+        display_name = link.get_text(strip=True)
+        
+        if not display_name or not href:
+            continue
+        
+        # Izvuci fv0 parametar
+        fv0_match = re.search(r'fv0=(.+?)(?:&currentPage=\d+|&amp;currentPage=\d+|$)', href)
+        if not fv0_match:
+            continue
+        
+        url_param = fv0_match.group(1).strip().rstrip('&')
+        
+        # Broj zapisa
+        parent = link.find_parent('div', class_='fasetaWrap')
+        count = 0
+        if parent:
+            count_div = parent.find('div', class_='spnFasetaBrojZapisa')
+            if count_div:
+                count_text = count_div.get_text(strip=True)
+                count = int(count_text.replace('.', '').replace(',', ''))
+        
+        # Kreiraj ključ
+        key = display_name.lower().strip()
+        key_ascii = (key
+            .replace('š', 's').replace('č', 'c').replace('ć', 'c')
+            .replace('ž', 'z').replace('đ', 'd')
+        )
+        
+        entry = {
+            'url_param': url_param,
+            'display_name': display_name,
+            'count': count
+        }
+        
+        languages[key] = entry
+        if key_ascii != key:
+            languages[key_ascii] = entry
+        
+        print(f"  ✓ '{key}' ({count}): {url_param}")
+    
+    # Dodaj aliase
+    print("\n--- Dodajem jezične aliase ---")
+    for alias, target_key in aliases.items():
+        if target_key in languages:
+            languages[alias] = languages[target_key]
+            print(f"  ✓ '{alias}' → '{target_key}'")
+    
+    print(f"\nUkupno: {len(languages)} jezika (sa aliasima)")
+    return languages
+
+def save_languages(languages):
+    """Spremi jezike u JSON"""
+    output_file = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'languages.json'
+    )
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(languages, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n✓ Spremljeno u: {output_file}")
+
 if __name__ == "__main__":
     print("=" * 70)
     print("UDK CATEGORIES FETCHER")
@@ -159,3 +283,7 @@ if __name__ == "__main__":
                 print(f"  ✓ '{key}': {categories[key]['display_name']}")
             else:
                 print(f"  ✗ '{key}' - NIJE pronađen!")
+
+    languages = fetch_languages()
+    if languages:
+        save_languages(languages)

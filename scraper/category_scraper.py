@@ -136,7 +136,151 @@ class CategoryScraper:
         }
 
         self.udk_categories = self._load_udk_categories()
+        self.languages = self._load_languages()
     
+    def _load_languages(self) -> dict:
+        """Učitaj jezike iz JSON fajla"""
+        try:
+            import json
+            
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            lang_file = os.path.join(script_dir, 'languages.json')
+            
+            logger.info(f"Učitavam jezike iz: {lang_file}")
+            
+            if not os.path.exists(lang_file):
+                logger.error(f"Jezici file ne postoji: {lang_file}")
+                return {}
+            
+            with open(lang_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"✓ Učitano {len(data)} jezika")
+                return data
+        
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju jezika: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
+    async def get_items_by_language(
+        self,
+        language: str,
+        limit: int = 10,
+        random_selection: bool = True
+    ) -> List[Dict]:
+        """
+        Dohvati knjige po jeziku
+        
+        Args:
+            language: Jezik (npr. 'engleski', 'latinski', 'njemački')
+            limit: Broj rezultata
+            random_selection: Random odabir
+            
+        Returns:
+            Lista knjiga
+        """
+        
+        try:
+            lang_lower = language.lower().strip()
+            
+            # Pronađi jezik
+            if lang_lower not in self.languages:
+                logger.warning(f"Nepoznat jezik: {language}")
+                return []
+            
+            lang_info = self.languages[lang_lower]
+            url_param = lang_info['url_param']
+            display_name = lang_info['display_name']
+            
+            logger.info(f"Jezik '{language}' → {display_name}")
+            
+            # URL za pretraživanje
+            search_url = f"{self.base_url}/pagesResults/rezultati.aspx?searchById=0&age=0&fid0=5&fv0={url_param}"
+            
+            # ScraperAPI
+            if self.scraper_api_key:
+                import urllib.parse
+                
+                scraper_url = (
+                    f"http://api.scraperapi.com/"
+                    f"?api_key={self.scraper_api_key}"
+                    f"&url={urllib.parse.quote(search_url, safe='')}"
+                    f"&country_code=hr"
+                )
+                
+                async with httpx.AsyncClient(timeout=45.0) as client:
+                    response = await client.get(scraper_url)
+            else:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(search_url)
+            
+            if response.status_code != 200:
+                logger.error(f"HTTP error: {response.status_code}")
+                return []
+            
+            logger.info(f"Response: {len(response.text)} bytes")
+            
+            # Parsiraj
+            soup = BeautifulSoup(response.text, 'html.parser')
+            items = self._parse_items(soup, limit * 3)
+            
+            logger.info(f"Parsirano {len(items)} knjiga")
+            
+            # Random selection
+            if random_selection and len(items) > limit:
+                items = random.sample(items, limit)
+            else:
+                items = items[:limit]
+            
+            return items
+        
+        except Exception as e:
+            logger.error(f"Greška pri dohvaćanju jezika: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def format_language_message(
+        self,
+        items: List[Dict],
+        language: str
+    ) -> str:
+        """Formatira poruku sa knjigama po jeziku"""
+        
+        if not items:
+            return (f"Nažalost, nisam pronašao knjige na **{language}** jeziku.\n\n"
+                f"Provjerite katalog: https://katalog.halubajska-zora.hr")
+        
+        # Display name
+        display_name = language
+        lang_lower = language.lower()
+        if lang_lower in self.languages:
+            display_name = self.languages[lang_lower]['display_name']
+        
+        msg = f"🌍 **Knjige na {display_name} jeziku:**\n\n"
+        
+        for i, item in enumerate(items, 1):
+            msg += f"{i}. **{item['title']}**"
+            
+            if item.get('author'):
+                msg += f"\n   ✍️ {item['author']}"
+            
+            if item.get('year'):
+                msg += f" ({item['year']})"
+            
+            if item.get('status'):
+                if item['status'] == 'Dostupno':
+                    msg += f"\n   ✅ {item['status']}"
+                elif item['status'] == 'Posuđeno':
+                    msg += f"\n   ❌ {item['status']}"
+            
+            msg += "\n\n"
+        
+        msg += f"🔗 Sve knjige na {display_name}: https://katalog.halubajska-zora.hr"
+        
+        return msg
+
     def get_category_param(self, query: str) -> str:
         """Pronađi URL parametar za kategoriju"""
         query_lower = query.lower().strip()

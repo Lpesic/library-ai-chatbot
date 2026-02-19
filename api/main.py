@@ -368,7 +368,31 @@ async def generate_response(user_message: str) -> str:
         )
         return category_scraper.format_subject_message(items, detected_subject)            
     
-    # 2. Pitanja o knjižnici
+    language_keywords = [
+    'engleski', 'njemacki', 'njemački', 'talijanski', 'francuski', 
+    'latinski', 'grčki', 'grcki', 'španjolski', 'spanjolski',
+    'srpski', 'bosanski', 'crnogorski', 'slovenski', 'makedonski',
+    'ruski', 'kineski', 'japanski', 'portugalski', 'hebrejski',
+    'english', 'german', 'italian', 'french', 'latin', 'greek', 'spanish'
+    ]
+
+    detected_language = None
+    for keyword in language_keywords:
+        if keyword in query_lower:
+            detected_language = keyword
+            break
+
+    #3. Provjera jezika        
+    if detected_language:
+        logger.info(f"JEZIK: Detektiran - {detected_language}")
+        items = await category_scraper.get_items_by_language(
+            language=detected_language,
+            limit=8,
+            random_selection=True
+        )
+        return category_scraper.format_language_message(items, detected_language)
+
+    # 4. Pitanja o knjižnici
     if any(word in query_lower for word in ['učlaniti', 'članarina', 'upis']):
         return ("📚 **Učlanjenje u knjižnicu**\n\n"
                 "Za učlanjenje trebate osobnu iskaznicu i pristupnicu. "
