@@ -51,6 +51,7 @@ class DatabaseManager:
                 material_type TEXT,
                 url TEXT,
                 full_info TEXT,
+                description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
