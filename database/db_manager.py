@@ -238,7 +238,11 @@ class DatabaseManager:
                 OR isbn LIKE ?
                 OR description LIKE ?
                 LIMIT ?
-            """, (f'%{query}%', f'%{query}%', f'%{query}%', limit))
+            """, (f'%{query}%', 
+                  f'%{query}%', 
+                  f'%{query}%', 
+                  f'%{query}%', 
+                  limit))
             
             rows = self.cursor.fetchall()
             return [dict(row) for row in rows]
