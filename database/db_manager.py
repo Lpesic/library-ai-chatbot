@@ -130,8 +130,8 @@ class DatabaseManager:
             self.cursor.execute("""
                 INSERT OR REPLACE INTO books 
                 (id, title, author, publisher, year, pages, isbn, language, 
-                 material_type, url, full_info, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 material_type, url, full_info, description, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 book_data.get('id'),
                 book_data.get('title'),
@@ -144,6 +144,7 @@ class DatabaseManager:
                 book_data.get('material_type'),
                 book_data.get('url'),
                 book_data.get('full_info'),
+                book_data.get('description', ''),
                 datetime.now()
             ))
             
@@ -231,7 +232,10 @@ class DatabaseManager:
         try:
             self.cursor.execute("""
                 SELECT * FROM books 
-                WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ?
+                WHERE title LIKE ?
+                OR author LIKE ?
+                OR isbn LIKE ?
+                OR description LIKE ?
                 LIMIT ?
             """, (f'%{query}%', f'%{query}%', f'%{query}%', limit))
             
