@@ -45,7 +45,8 @@ class BookDetailParser:
                 'classifications': self._extract_classifications(soup),
                 'tags': self._extract_tags(soup),
                 'material_type': self._extract_material_type(soup),
-                'notes': self._extract_notes(soup)
+                'notes': self._extract_notes(soup),
+                'description': self._extract_description(soup),
             }
             
             logger.info(f"Uspješno parsirano: {book_data['title']}")
@@ -250,6 +251,23 @@ class BookDetailParser:
                     notes.append(value_div.get_text(strip=True))
         return notes
 
+    def _extract_description(self, soup: BeautifulSoup) -> str:
+        """Izvlači anotaciju (opis) knjige"""
+        # 1. pokušaj: preko itemprop="about" što je standard
+        desc_span = soup.find('span', {'itemprop': 'about'})
+        if desc_span:
+            return desc_span.get_text(strip=True)
+        
+        # 2. pokušaj: traženje reda prema nazivu "Anotacija" (fallback)
+        rows = soup.find_all('div', class_='row')
+        for row in rows:
+            label = row.find('div', class_='tdBibliografskiZapisNaziv')
+            if label and 'Anotacija' in label.get_text():
+                value_div = row.find('div', class_='tdCellValue')
+                if value_div:
+                    return value_div.get_text(strip=True)
+                    
+        return "Opis nije dostupan."
 
 # Test
 if __name__ == "__main__":

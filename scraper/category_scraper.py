@@ -261,7 +261,7 @@ class CategoryScraper:
         msg = f"🌍 **Knjige na {display_name} jeziku:**\n\n"
         
         for i, item in enumerate(items, 1):
-            msg += f"{i}. **{item['title']}**"
+            msg += f"{i}. **{item['title']}**\n"
             
             if item.get('author'):
                 msg += f"\n   ✍️ {item['author']}"
@@ -510,7 +510,7 @@ class CategoryScraper:
         msg = f"📚 **Knjige iz područja: {display_name}**\n\n"
         
         for i, item in enumerate(items, 1):
-            msg += f"{i}. **{item['title']}**"
+            msg += f"{i}. **{item['title']}**\n"
             
             if item.get('author'):
                 msg += f"\n   ✍️ {item['author']}"
@@ -622,7 +622,7 @@ class CategoryScraper:
         msg = f"🔥 **Najčitanije knjige (zadnjih {period_name}):**\n\n"
         
         for i, book in enumerate(books, 1):
-            msg += f"{i}. **{book['title']}**"
+            msg += f"{i}. **{book['title']}**\n"
             
             if book.get('author'):
                 msg += f"\n   ✍️ {book['author']}"
@@ -741,7 +741,7 @@ class CategoryScraper:
         msg = f"🎯 **Preporuke iz kategorije: {category}**\n\n"
         
         for i, item in enumerate(items, 1):
-            msg += f"{i}. **{item['title']}**"
+            msg += f"{i}. **{item['title']}**\n"
             
             if item.get('author'):
                 msg += f"\n   ✍️ {item['author']}"

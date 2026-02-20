@@ -30,6 +30,7 @@ try:
     from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
     from scraper.new_books_scraper import NewBooksScraper
+    from scraper.book_detail_parser import BookDetailParser
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
@@ -59,6 +60,7 @@ app.add_middleware(
 availability_checker = ScraperAPIChecker()
 new_books_scraper = NewBooksScraper()
 category_scraper = CategoryScraper()
+book_detail_parser = BookDetailParser()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
@@ -326,7 +328,54 @@ async def generate_response(user_message: str) -> str:
         else:
             return "Trenutno nemam knjiga u bazi za preporuku. Provjerite katalog: https://katalog.halubajska-zora.hr"
     
-    # 2. TRAZENJE PO TEMI
+    # 2. OPIS KNJIGE
+    if any(word in query_lower for word in ['o čemu', 'o cemu', 'opis knjige', 'o knjizi', 'radnja', 'tema knjige', 'sadržaj knjige', 'sažetak', 'sazetak']):
+        logger.info("OPIS KNJIGE: Dohvaćam anotaciju...")
+        
+        keywords = extract_keywords(user_message)
+        
+        if keywords:
+            # 1. Pronađi knjigu (u bazi ili preko kataloga ako nije u bazi)
+            book_id = None
+            book_title = ""
+            
+            books = db.search_books(keywords[0], limit=1)
+            if books:
+                book_id = books[0]['id']
+                book_title = books[0]['title']
+            else:
+                # Ako nije u bazi, probaj naći ID na katalogu
+                search_result = await search_catalog_for_book(keywords[0])
+                if search_result:
+                    book_id = search_result['book_id']
+                    book_title = search_result['title']
+
+            if book_id:
+                logger.info(f"Dohvaćam detalje za ID: {book_id}")
+                details = book_detail_parser.parse_book_detail(book_id)
+                
+                if 'error' in details:
+                    return "Žao mi je, ne mogu trenutno dohvatiti detalje o toj knjizi."
+                
+                # Sklapanje odgovora
+                desc = details.get('description', 'Opis nije dostupan.')
+                
+                response = f"📖 **{details.get('title', book_title)}**\n"
+                response += f"✍️ Autor: {details.get('author', 'Nepoznato')}\n\n"
+                response += f"**O čemu se radi:**\n{desc}\n\n"
+                
+                if details.get('subjects'):
+                    response += f"🏷️ *Teme: {', '.join(details['subjects'][:3])}*\n"
+                
+                response += f"\n🔗 Više detalja: {details.get('url')}"
+                return response
+            else:
+                return (f"Nisam uspio pronaći opis za **'{keywords[0]}'**.\n"
+                        "Pokušajte s točnijim naslovom ili provjerite ovdje: https://katalog.halubajska-zora.hr")
+        
+        return "Navedite naslov knjige čiji vas opis zanima."
+
+    # 3. TRAZENJE PO TEMI
     if detected_category:
         logger.info(f"KATEGORIJA: Detektirana - {detected_category}")
         items = await category_scraper.get_items_by_category(
@@ -382,7 +431,7 @@ async def generate_response(user_message: str) -> str:
             detected_language = keyword
             break
 
-    #3. Provjera jezika        
+    #4. Provjera jezika        
     if detected_language:
         logger.info(f"JEZIK: Detektiran - {detected_language}")
         items = await category_scraper.get_items_by_language(
@@ -433,7 +482,7 @@ async def generate_response(user_message: str) -> str:
                 "• Osobno\n\n"
                 "Ako knjiga nije rezervirana.")
     
-    # 3. Pretraživanje knjiga (specifično)
+    # 5. Pretraživanje knjiga (specifično)
     if any(word in query_lower for word in ['knjiga o', 'knjige o', 'autor', 'naslov', 'imate li', 'imaš li']):
         keywords = extract_keywords(user_message)
         
@@ -460,7 +509,7 @@ async def generate_response(user_message: str) -> str:
                 response += "💡 Za dostupnost: https://katalog.halubajska-zora.hr"
                 return response
     
-    # 4. Knowledge base search
+    # 6. Knowledge base search
     kb_results = kb.search(user_message, n_results=2)
     
     if kb_results and kb_results[0].get('distance', 1.0) < 0.7:
@@ -470,13 +519,13 @@ async def generate_response(user_message: str) -> str:
         
         return content + "\n\nViše: https://www.halubajska-zora.hr"
     
-    #5. NOVE KNJIGE
+    #7. NOVE KNJIGE
     if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove']):
         logger.info("NOVE KNJIGE: Dohvaćam...")
         books = await new_books_scraper.get_new_books(days=365, limit=8)
         return new_books_scraper.format_new_books_message(books)
 
-    #6. NAJČITANIJE KNJIGE
+    #8. NAJČITANIJE KNJIGE
     if any(word in query_lower for word in ['najčitan', 'najpopular', 'top knjig', 'popularne knjige', 'hitovi']):
         logger.info("NAJČITANIJE: Dohvaćam...")
         
@@ -530,7 +579,6 @@ async def api_root():
             "docs": "/docs"
         }
     }
-
 
 @app.get("/api/health")
 async def health_check():

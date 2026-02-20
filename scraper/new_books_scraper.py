@@ -165,7 +165,7 @@ class NewBooksScraper:
         msg = f"📚 **Novi naslovi u knjižnici** ({len(books)} najnovijih):\n\n"
         
         for i, book in enumerate(books, 1):
-            msg += f"{i}. **{book['title']}**"
+            msg += f"{i}. **{book['title']}**\n"
             
             if book.get('author'):
                 msg += f"\n   ✍️ {book['author']}"
