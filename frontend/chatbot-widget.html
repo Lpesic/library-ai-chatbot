@@ -175,6 +175,10 @@
         border-radius: 15px;
         line-height: 1.4;
         font-size: 14px;
+
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-all;
       }
 
       .message.user .message-content {
@@ -553,7 +557,11 @@
 
         const contentDiv = document.createElement("div");
         contentDiv.className = "message-content";
-        contentDiv.textContent = content;
+        if (isUser) {
+          contentDiv.textContent = content;
+        } else {
+          contentDiv.innerHTML = formatLinks(content);
+        }
 
         messageDiv.appendChild(contentDiv);
         chatMessages.appendChild(messageDiv);
@@ -687,6 +695,13 @@
       function sendQuickQuestion(question) {
         chatInput.value = question;
         sendMessage();
+      }
+
+      function formatLinks(text) {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlRegex, function (url) {
+          return `<a href="${url}" target="_blank" style="color: #007bff; text-decoration: underline;">${url}</a>`;
+        });
       }
 
       function handleKeyPress(event) {
