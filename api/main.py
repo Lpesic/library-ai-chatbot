@@ -32,7 +32,7 @@ try:
     from chatbot.knowledge_base import KnowledgeBase
     from scraper.new_books_scraper import NewBooksScraper
     from scraper.book_detail_parser import BookDetailParser
-    from api.openai_integration import LibraryChatbot
+    from api.gemini_integration import LibraryChatbot
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
@@ -63,7 +63,7 @@ availability_checker = ScraperAPIChecker()
 new_books_scraper = NewBooksScraper()
 category_scraper = CategoryScraper()
 book_detail_parser = BookDetailParser()
-openai_chatbot = LibraryChatbot()
+gemini_chatbot = LibraryChatbot()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
@@ -643,16 +643,10 @@ async def chat(request: ChatRequest):
         logger.error(f"API ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
 
-@app.post("/api/chat/openai")
-async def chat_openai(request: ChatRequest):
-    """OpenAI-powered chat endpoint"""
-    try:
-        response = await openai_chatbot.chat(request.message)
-        return {"response": response}
-    
-    except Exception as e:
-        logger.error(f"OpenAI chat error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/api/chat/ai")
+async def chat_ai(request: ChatRequest):
+    response = await gemini_chatbot.chat(request.message)
+    return {"response": response}
 
 @app.post("/api/books/search")
 async def search_books(request: BookSearchRequest):
