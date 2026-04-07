@@ -15,6 +15,7 @@ import logging
 import re
 import httpx
 from bs4 import BeautifulSoup
+from api.gemini_integration import LibraryChatbot
 
 
 logging.basicConfig(level=logging.INFO)
@@ -63,9 +64,17 @@ availability_checker = ScraperAPIChecker()
 new_books_scraper = NewBooksScraper()
 category_scraper = CategoryScraper()
 book_detail_parser = BookDetailParser()
-gemini_chatbot = LibraryChatbot()
 db = DatabaseManager()
 kb = KnowledgeBase()
+
+GEMINI_ENABLED = bool(os.getenv('GEMINI_API_KEY'))
+
+if GEMINI_ENABLED:
+    logger.info("Gemini API key pronađen")
+    ai_chatbot = LibraryChatbot()
+else:
+    logger.warning("Gemini API key nije postavljen")
+    ai_chatbot = None
 
 # Učitaj knowledge base ako je prazan
 try:
@@ -625,28 +634,43 @@ async def get_new_books_endpoint(days: int = 365, limit: int = 10):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """
-    Chat endpoint - prima poruku korisnika i vraća odgovor
-    """
     try:
         user_message = request.message.strip()
         
         if not user_message:
             raise HTTPException(status_code=400, detail="Poruka ne može biti prazna")
         
-        # Generiraj odgovor (template-based za sada)
-        response = await generate_response(user_message)
+        # PROMJENA: Ako je Gemini uključen, koristi njega za SVE
+        if GEMINI_ENABLED and ai_chatbot:
+            logger.info("Koristim Gemini za odgovor...")
+            response = await ai_chatbot.chat(user_message)
+        else:
+            # Fallback na tvoju staru robotsku logiku samo ako nema interneta/ključa
+            logger.info("Gemini nije dostupan, koristim template-based odgovor.")
+            response = await generate_response(user_message)
         
         return ChatResponse(response=response)
         
     except Exception as e:
         logger.error(f"API ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)}")
+        return ChatResponse(response="Ups, nešto je zapelo. Pokušajte ponovno kasnije.")
 
 @app.post("/api/chat/ai")
 async def chat_ai(request: ChatRequest):
-    response = await gemini_chatbot.chat(request.message)
-    return {"response": response}
+    """Gemini-powered chat endpoint"""
+    if not ai_chatbot:
+        raise HTTPException(
+            status_code=503, 
+            detail="AI chatbot nije konfiguriran. Postavi GEMINI_API_KEY."
+        )
+    
+    try:
+        response = await ai_chatbot.chat(request.message)
+        return {"response": response}
+    
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/books/search")
 async def search_books(request: BookSearchRequest):

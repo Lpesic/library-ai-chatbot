@@ -3,9 +3,8 @@
 <html lang="hr">
   <head>
     <meta charset="UTF-8" />
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+    <link rel="icon" type="image/x-icon" href="favicon.png" />
     <title>Knjižnica Halubajska Zora</title>
 
     <style>
@@ -519,7 +518,8 @@
     </div>
 
     <script>
-      const API_URL = "https://library-ai-chatbot-production.up.railway.app";
+      //const API_URL = "https://library-ai-chatbot-production.up.railway.app";
+      const API_URL = "http://localhost:8000";
       const chatWidget = document.getElementById("chatWidget");
       const chatButton = document.getElementById("chatButton");
       const chatMessages = document.getElementById("chatMessages");

@@ -1,183 +1,102 @@
-
 import os
 import logging
+import sqlite3
 from typing import Dict, List, Optional
-import google.generativeai as genai
+# Koristimo ISKLJUČIVO novi SDK
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
-
 class LibraryChatbot:
-    """Gemini-powered library chatbot"""
-    
     def __init__(self):
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            raise ValueError("GEMINI_API_KEY nije postavljen!")
+            logger.error("Nema API ključa u .env datoteci!")
+            self.client = None
+            return
+
+        # Inicijalizacija novog klijenta
+        self.client = genai.Client(api_key=api_key)
         
-        genai.configure(api_key=api_key)
-        
-        # Koristi besplatni Gemini 1.5 Flash
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # System prompt
+        # Koristimo model koji je tvoj test potvrdio
+        self.model_id = 'models/gemini-flash-latest'
+
         self.system_prompt = """
-Ti si AI asistent Knjižnice Halubajska Zora u Hrvatskoj.
+        Ti si AI asistent Knjižnice Halubajska Zora. 
+        Odgovaraj na hrvatskom jeziku.
+        Radno vrijeme: Pon-Pet 08:00-20:00, Sub 08:00-14:00.
+        """
 
-Tvoja uloga:
-- Pomažeš korisnicima s informacijama o knjižnici
-- Pretražuješ katalog knjiga
-- Provjereš dostupnost knjiga
-- Preporučuješ knjige prema interesima korisnika
-- Daješ informacije o radnom vremenu, učlanjenju i uslugama
-
-Ponašanje:
-- Uvijek budi ljubazan i profesionalan
-- Odgovaraj na hrvatskom jeziku
-- Ako ne znaš odgovor, reci to iskreno
-- Za specifične upite koristi dostupne funkcije
-
-Informacije o knjižnici:
-- Radno vrijeme: Pon-Pet 8:00-20:00, Sub 8:00-14:00, Ned zatvoreno
-- Članarina: Besplatna za stanovnike grada
-- Posudba: Do 5 knjiga na 30 dana
-- Web: https://katalog.halubajska-zora.hr
-"""
-        
-        # Definiraj funkcije (Gemini function declarations)
-        self.tools = self._define_tools()
-    
-    def _define_tools(self):
-        """Definiraj function declarations za Gemini"""
-        
-        return [
-            {
-                "function_declarations": [
-                    {
-                        "name": "search_books",
-                        "description": "Pretraži knjige u katalogu",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "query": {
-                                    "type": "string",
-                                    "description": "Ključna riječ za pretragu"
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "description": "Broj rezultata",
-                                    "default": 5
-                                }
-                            },
-                            "required": ["query"]
-                        }
-                    },
-                    {
-                        "name": "check_availability",
-                        "description": "Provjeri dostupnost knjige",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "book_id": {
-                                    "type": "string",
-                                    "description": "ID knjige"
-                                }
-                            },
-                            "required": ["book_id"]
-                        }
-                    },
-                    {
-                        "name": "get_new_books",
-                        "description": "Dohvati najnovije knjige",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "days": {
-                                    "type": "integer",
-                                    "description": "Broj dana unazad",
-                                    "default": 365
-                                },
-                                "limit": {
-                                    "type": "integer",
-                                    "default": 10
-                                }
-                            }
-                        }
-                    }
-                    # ... ostale funkcije ...
-                ]
-            }
-        ]
-    
-    async def chat(
-        self, 
-        user_message: str,
-        conversation_history: Optional[List[Dict]] = None
-    ) -> str:
-        """Chat sa Gemini modelom"""
-        
-        try:
-            # Pripremi povijest s system promptom
-            chat = self.model.start_chat(history=[])
-            
-            # Dodaj system prompt kao prvi message
-            chat.send_message(self.system_prompt)
-            
-            # Dodaj user message
-            response = chat.send_message(
-                user_message,
-                tools=self.tools
-            )
-            
-            # Provjeri function calls
-            if response.candidates[0].content.parts[0].function_call:
-                return await self._handle_function_call(response, chat)
-            
-            return response.text
-        
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
-            return "Nažalost, došlo je do greške. Pokušaj ponovno."
-    
-    async def _handle_function_call(self, response, chat):
-        """Obradi Gemini function call"""
-        
-        function_call = response.candidates[0].content.parts[0].function_call
-        function_name = function_call.name
-        function_args = dict(function_call.args)
-        
-        logger.info(f"Gemini poziva: {function_name}({function_args})")
-        
-        # Pozovi funkciju
-        result = await self._execute_function(function_name, function_args)
-        
-        # Vrati rezultat Geminiju
-        response = chat.send_message(
-            genai.protos.Content(
-                parts=[genai.protos.Part(
-                    function_response=genai.protos.FunctionResponse(
-                        name=function_name,
-                        response={"result": result}
-                    )
-                )]
+        self.chat_session = self.client.chats.create(
+            model=self.model_id,
+            config=types.GenerateContentConfig(
+                system_instruction=self.system_prompt,
+                temperature=0.3,  # Niža temperatura = brži i konkretniji odgovori
+                max_output_tokens=500, # Ograniči duljinu odgovora
+                top_p=0.8,
+                top_k=40
             )
         )
-        
-        return response.text
-    
-    async def _execute_function(self, function_name: str, function_args: Dict):
-        """Izvršava funkcije"""
-        
-        # Import scrapers
-        from scraper.availability_checker import ScraperAPIChecker
-        from scraper.new_books_scraper import NewBooksScraper
-        # ... itd. (isti kod kao prije)
-        
-        # Implementacija funkcija
-        if function_name == "search_books":
-            # ...
-            pass
-        elif function_name == "check_availability":
-            # ...
-            pass
-        # ... itd.
+
+    def _db_search(self, query: str):
+        try:
+            conn = sqlite3.connect('data/library.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            # Tražimo po naslovu ili autoru
+            cursor.execute("SELECT title, author FROM books WHERE title LIKE ? OR author LIKE ? LIMIT 5", 
+                        (f'%{query}%', f'%{query}%'))
+            results = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            
+            # AKO JE LISTA PRAZNA, RECI MU TO JASNO:
+            if not results:
+                return "Nažalost, trenutno nemam takvih knjiga u bazi. Ponudi korisniku općenit savjet."
+                
+            return results
+        except Exception as e:
+            return f"Greška: {e}"
+
+    async def chat(self, user_message: str) -> str:
+        if not self.client:
+            return "Greška s API klijentom."
+
+        try:
+            # 1. Prvi poziv Geminiju
+            response = self.chat_session.send_message(message=user_message)
+            
+            # Provjera ima li uopće odgovora
+            if not response.candidates or not response.candidates[0].content.parts:
+                return "Nažalost, nisam uspio generirati odgovor."
+
+            # Izvlačenje dijelova odgovora
+            parts = response.candidates[0].content.parts
+            
+            # Provjeravamo ima li poziva funkcije (Function Call)
+            function_call = next((part.function_call for part in parts if part.function_call), None)
+
+            if function_call:
+                logger.info(f"Model zove funkciju: {function_call.name}")
+                
+                # Izvrši pretragu u bazi
+                db_result = self._db_search(function_call.args.get("query", ""))
+
+                # 2. Drugi poziv Geminiju (šaljemo rezultat funkcije nazad)
+                # Gemini će sada uzeti ono "Pozdrav..." i nastaviti s konkretnim knjigama
+                final_response = self.chat_session.send_message(
+                    message=[types.Part.from_function_response(
+                        name=function_call.name,
+                        response={"result": db_result}
+                    )]
+                )
+                return final_response.text
+
+            # Ako NIJE bilo poziva funkcije, samo vrati običan tekst
+            return response.text
+
+        except Exception as e:
+            logger.error(f"Chat Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return "Došlo je do greške. Pokušajte ponovno."
