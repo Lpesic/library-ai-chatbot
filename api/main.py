@@ -15,7 +15,7 @@ import logging
 import re
 import httpx
 from bs4 import BeautifulSoup
-from api.gemini_integration import LibraryChatbot
+from api.groq_integration import LibraryChatbot
 
 
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +33,6 @@ try:
     from chatbot.knowledge_base import KnowledgeBase
     from scraper.new_books_scraper import NewBooksScraper
     from scraper.book_detail_parser import BookDetailParser
-    from api.gemini_integration import LibraryChatbot
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
     # Fallback za lokalno testiranje ako struktura foldera varira
@@ -67,13 +66,13 @@ book_detail_parser = BookDetailParser()
 db = DatabaseManager()
 kb = KnowledgeBase()
 
-GEMINI_ENABLED = bool(os.getenv('GEMINI_API_KEY'))
+GROQ_ENABLED = bool(os.getenv('GROQ_API_KEY'))
 
-if GEMINI_ENABLED:
-    logger.info("Gemini API key pronađen")
+if GROQ_ENABLED:
+    logger.info("Groq API key pronađen - ULTRA BRZO!")
     ai_chatbot = LibraryChatbot()
 else:
-    logger.warning("Gemini API key nije postavljen")
+    logger.warning("Groq API key nije postavljen")
     ai_chatbot = None
 
 # Učitaj knowledge base ako je prazan
@@ -633,35 +632,12 @@ async def get_new_books_endpoint(days: int = 365, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    try:
-        user_message = request.message.strip()
-        
-        if not user_message:
-            raise HTTPException(status_code=400, detail="Poruka ne može biti prazna")
-        
-        # PROMJENA: Ako je Gemini uključen, koristi njega za SVE
-        if GEMINI_ENABLED and ai_chatbot:
-            logger.info("Koristim Gemini za odgovor...")
-            response = await ai_chatbot.chat(user_message)
-        else:
-            # Fallback na tvoju staru robotsku logiku samo ako nema interneta/ključa
-            logger.info("Gemini nije dostupan, koristim template-based odgovor.")
-            response = await generate_response(user_message)
-        
-        return ChatResponse(response=response)
-        
-    except Exception as e:
-        logger.error(f"API ERROR: {str(e)}")
-        return ChatResponse(response="Ups, nešto je zapelo. Pokušajte ponovno kasnije.")
-
-@app.post("/api/chat/ai")
 async def chat_ai(request: ChatRequest):
-    """Gemini-powered chat endpoint"""
+    """Groq-powered chat endpoint (NAJBRŽI!)"""
     if not ai_chatbot:
         raise HTTPException(
             status_code=503, 
-            detail="AI chatbot nije konfiguriran. Postavi GEMINI_API_KEY."
+            detail="AI chatbot nije konfiguriran. Postavi GROQ_API_KEY."
         )
     
     try:

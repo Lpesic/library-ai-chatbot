@@ -176,8 +176,12 @@
         font-size: 14px;
 
         word-wrap: break-word;
-        overflow-wrap: break-word;
-        word-break: break-all;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+
+      .message-content a {
+        word-break: break-all; /* Samo za linkove unutar poruke dopuštamo sječenje */
       }
 
       .message.user .message-content {
