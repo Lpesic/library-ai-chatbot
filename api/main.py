@@ -16,7 +16,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 from api.groq_integration import LibraryChatbot
-
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -531,7 +531,7 @@ async def generate_response(user_message: str) -> str:
         return content + "\n\nViše: https://www.halubajska-zora.hr"
     
     #7. NOVE KNJIGE
-    if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove']):
+    if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove', 'najnovije']):
         logger.info("NOVE KNJIGE: Dohvaćam...")
         books = await new_books_scraper.get_new_books(days=365, limit=8)
         return new_books_scraper.format_new_books_message(books)
@@ -633,6 +633,39 @@ async def get_new_books_endpoint(days: int = 365, limit: int = 10):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_ai(request: ChatRequest):
+    if not ai_chatbot:
+        raise HTTPException(status_code=503, detail="AI chatbot nije konfiguriran.")
+    
+    try:
+        # --- NOVI DIO: ANALIZA UPITA ---
+        # Pitamo Groq da nam vrati meta-podatke (JSON)
+        # Napomena: Ovo možeš staviti unutar LibraryChatbot klase u groq_integration.py 
+        # ali evo primjera kako to ispisati ovdje u main.py
+        
+        metadata = await ai_chatbot.analyze_intent(request.message) 
+        
+        # ISPIS U TERMINAL (ono što si tražio)
+        print("\n" + "🔍" * 20)
+        print(f"KORISNIK KAŽE: {request.message}")
+        print("BOT SHVATIO:")
+        print(json.dumps(metadata, indent=2, ensure_ascii=False))
+        
+        # Generiraj pametni URL ako bot detektira da se radi o pretrazi
+        smart_url = url_builder.build(metadata)
+        print(f"🔗 GENERIRANI URL: {smart_url}")
+        print("🔍" * 20 + "\n")
+        # --- KRAJ NOVOG DIJELA ---
+
+        # Originalni poziv chatbotu koji generira ljudski odgovor
+        response = await ai_chatbot.chat(request.message, context_url=smart_url)
+        return {"response": response}
+    
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_ai(request: ChatRequest):
     """Groq-powered chat endpoint (NAJBRŽI!)"""
     if not ai_chatbot:
         raise HTTPException(
@@ -665,7 +698,6 @@ async def search_books(request: BookSearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/api/books/{book_id}")
 async def get_book(book_id: str):
     """
@@ -684,7 +716,6 @@ async def get_book(book_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/api/books/popular")
 async def get_popular_books(limit: int = 10):
     """
@@ -699,7 +730,6 @@ async def get_popular_books(limit: int = 10):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # --- STARTUP / SHUTDOWN
 
 @app.on_event("startup")
@@ -711,10 +741,10 @@ async def startup_event():
         # Provjeri je li baza prazna
         all_books = db.get_all_books(limit=1)
     except Exception as e:
-        print(f"⚠️ Problem s bazom: {e}")
+        print(f"Problem s bazom: {e}")
     
     if not all_books or len(all_books) == 0:
-        print("⚠️ Baza je prazna - učitavam knjige iz JSON-a...")
+        print("Baza je prazna - učitavam knjige iz JSON-a...")
         
         # Učitaj iz JSON-a
         import glob
@@ -722,16 +752,15 @@ async def startup_event():
         
         if json_files:
             count = db.import_from_json(json_files[0])
-            print(f"✅ Učitano {count} knjiga u bazu")
+            print(f"Učitano {count} knjiga u bazu")
         else:
-            print("❌ Nema JSON fajlova za import!")
+            print("Nema JSON fajlova za import!")
     else:
-        print(f"✅ Baza već sadrži knjige: {len(all_books)}")
+        print(f"Baza već sadrži knjige: {len(all_books)}")
     
-    print(f"📚 Knowledge base: {kb.get_count()} dokumenata")
-    print(f"📖 Baza podataka: spremna")
+    print(f"Knowledge base: {kb.get_count()} dokumenata")
+    print(f"Baza podataka: spremna")
     print("=" * 70)
-
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -761,5 +790,3 @@ if __name__ == "__main__":
     asyncio.run(test())
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-

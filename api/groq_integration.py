@@ -7,6 +7,7 @@ import logging
 import sqlite3
 from typing import Dict, List, Optional
 from groq import AsyncGroq
+import json 
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +354,25 @@ Budi koncizan - maksimalno 3-4 rečenice osim ako korisnik ne traži detaljno ob
             traceback.print_exc()
             return {"error": str(e)}
 
+    async def analyze_intent(self, message: str):
+        prompt = f"""
+        Analiziraj upit i vrati JSON s ključevima:
+        - 'pojam': (glavna tema ili naslov ako postoji)
+        - 'sadrzaj': (jedna od: medicina, glazba, duhovnost, građevina...)
+        - 'jezik': (jedna od: english, croatian, spanish, french, german, slovak, slovenian...)
+        - 'gradja': (jedna od: knjiga, vizualna građa, igračka)
+        - 'status': ('za posudbu' ako korisnik pita je li dostupno, inače null)
+        
+        Upit: "{message}"
+        """
+        
+        # Poziv Groq-u s response_format={"type": "json_object"}
+        response = self.client.chat.completions.create(
+            messages=[{"role": "system", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
 
 # Quick test
 if __name__ == "__main__":
