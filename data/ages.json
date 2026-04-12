@@ -1,0 +1,34 @@
+{
+  "mlada_predskolska": {
+    "display_name": "Mlađa djeca predškolske dobi",
+    "params": ["%23179%23S"]
+  },
+  "predskolska": {
+    "display_name": "Djeca predškolske dobi",
+    "params": ["%23179%23M"]
+  },
+  "mlada_skolska": {
+    "display_name": "Mlađa djeca školske dobi",
+    "params": ["%23179%23M", "%23179%23D"]
+  },
+  "skolska": {
+    "display_name": "Djeca školske dobi",
+    "params": ["%23179%23O"]
+  },
+  "djeca_opca": {
+    "display_name": "Djecu, opća",
+    "params": ["%23179%23dje%c4%8dja%2c+op%c4%87a"]
+  },
+  "djeca_neodredena": {
+    "display_name": "Djecu, neodređena",
+    "params": ["%23179%23dje%c4%8dja%2c+neodre%c4%91ena"]
+  },
+  "mladi_odrasli": {
+    "display_name": "Mlade odrasle",
+    "params": ["%23179%2315%2b"]
+  },
+  "odrasli": {
+    "display_name": "Odrasle",
+    "params": ["%23179%23odrasli"]
+  }
+}
