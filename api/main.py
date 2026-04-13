@@ -112,6 +112,16 @@ def extract_keywords(query: str) -> list:
     words = re.findall(r'\w+', query.lower())
     return [w for w in words if w not in stop_words and len(w) > 2][:3]
 
+def load_membership_info():
+    path = 'data/membership_info.json'
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get('full_text', '')
+    except Exception as e:
+        print(f"Greška pri učitavanju informacija o članstvu: {e}")
+        return ""
+
 async def search_catalog_for_book(query: str) -> Dict:
     """
     Pretraži katalog knjižnice za knjigu
@@ -629,39 +639,6 @@ async def get_new_books_endpoint(days: int = 365, limit: int = 10):
             "books": books
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat_ai(request: ChatRequest):
-    if not ai_chatbot:
-        raise HTTPException(status_code=503, detail="AI chatbot nije konfiguriran.")
-    
-    try:
-        # --- NOVI DIO: ANALIZA UPITA ---
-        # Pitamo Groq da nam vrati meta-podatke (JSON)
-        # Napomena: Ovo možeš staviti unutar LibraryChatbot klase u groq_integration.py 
-        # ali evo primjera kako to ispisati ovdje u main.py
-        
-        metadata = await ai_chatbot.analyze_intent(request.message) 
-        
-        # ISPIS U TERMINAL (ono što si tražio)
-        print("\n" + "🔍" * 20)
-        print(f"KORISNIK KAŽE: {request.message}")
-        print("BOT SHVATIO:")
-        print(json.dumps(metadata, indent=2, ensure_ascii=False))
-        
-        # Generiraj pametni URL ako bot detektira da se radi o pretrazi
-        smart_url = url_builder.build(metadata)
-        print(f"🔗 GENERIRANI URL: {smart_url}")
-        print("🔍" * 20 + "\n")
-        # --- KRAJ NOVOG DIJELA ---
-
-        # Originalni poziv chatbotu koji generira ljudski odgovor
-        response = await ai_chatbot.chat(request.message, context_url=smart_url)
-        return {"response": response}
-    
-    except Exception as e:
-        logger.error(f"AI chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat", response_model=ChatResponse)

@@ -1,0 +1,18 @@
+{
+  "knjiga": "knjiga",
+  "nakladnicki_niz": "nakladnički+niz",
+  "vizualna_gradja": "vizualna+građa",
+  "clanak": "članak",
+  "e-knjiga": "e-knjiga",
+  "glazba": "zvučna+građa%2c+glazbena",
+  "elektronika": "elektronička+građa",
+  "zvucna_knjiga": "zvučna+građa%2c+neglazbena",
+  "igracka": "igračka",
+  "notni_zapisi": "notna+građa",
+  "karte": "kartografska+građa",
+  "zvucna_e-knjiga": "zvučna+e-knjiga",
+  "periodika": "časopis",
+  "tematski_broj": "tematski+broj",
+  "grafika": "grafička+građa",
+  "ostalo": "ostalo"
+}

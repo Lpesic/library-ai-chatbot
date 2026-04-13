@@ -12,6 +12,7 @@ class AdvancedUrlBuilder:
         # Učitavanje specifičnih JSON-ova
         self.languages = self._load_json('scraper/languages.json')
         self.categories = self._load_json('scraper/udk_categories.json')
+        self.media_types = self._load_json('data/media_types.json')
         self.ages = self._load_json('data/ages.json')
         self.locations = {
             "marinici": "%23179%23281%23Sredi%c5%a1nja+knji%c5%benica+Marini%c4%87i",
@@ -49,6 +50,7 @@ class AdvancedUrlBuilder:
         lang_list = list(self.languages.keys())
         cat_list = list(self.categories.keys())
         age_list = list(self.ages.keys())
+        media_list = list(self.media_types.keys())
 
         system_prompt = f"""
         Ti si knjižnični analitičar. Pretvori korisnički upit u JSON filtre.
@@ -57,25 +59,45 @@ class AdvancedUrlBuilder:
         - JEZIK: {lang_list}
         - SADRŽAJ: {cat_list}
         - UZRAST: {age_list}
-        - GRAĐA: [knjiga, vizualna građa, igračka, zvučna građa]
+        - GRAĐA: {media_list}
         - LOKACIJA: [marinici, viskovo]
 
         ### LOGIKA MAPIRANJA:
         1. **Lokacije (Sinonimi):**
-           - 'marinici' = Središnja, Marinići, Glavna knjižnica, Centar.
-           - 'viskovo' = Viškovo, Ogranak, Podružnica.
+            - 'marinici' = Središnja, Marinići, Glavna knjižnica, Centar.
+            - 'viskovo' = Viškovo, Ogranak, Podružnica.
         2. **Dostupnost (dostupno_odmah):**
-           - Postavi na `true` ako korisnik koristi: "slobodno", "za posudbu", "dostupno", "mogu podići", "na polici".
-           - Inače postavi na `false`.
+            - Postavi na `true` ako korisnik koristi: "slobodno", "za posudbu", "dostupno", "mogu podići", "na polici".
+            - Inače postavi na `false`.
         3. **Uzrast (Kontekst):**
-           - Bebe/jaslice -> 'mlada_predskolska'
-           - Vrtić -> 'predskolska'
-           - Školarci (niži) -> 'mlada_skolska'
-           - Školarci (viši) -> 'skolska'
-           - Tinejdžeri/Srednja škola -> 'mladi_odrasli'
-           - Odrasli -> 'odrasli'
+            - Bebe/jaslice -> 'mlada_predskolska'
+            - Vrtić -> 'predskolska'
+            - Školarci (niži) -> 'mlada_skolska'
+            - Školarci (viši) -> 'skolska'
+            - Tinejdžeri/Srednja škola -> 'mladi_odrasli'
+            - Odrasli -> 'odrasli'
         4. **Godina:** - Pretvori tekstualne godine (npr. "devedeset peta") u broj (1995).
-           - Ako kaže "novo" ili "zadnje", koristi 2025.
+            - Ako kaže "novo" ili "zadnje", koristi 2026.
+        5. **Građa:**
+            - "film" ili "DVD" -> 'vizualna_gradja'
+            - "CD" ili "glazba" -> koristi 'glazba'
+            - "zvučna knjiga" ili "audio knjiga" -> 'zvucna_knjiga'
+            - "novine" ili "časopis" -> 'periodika'
+            - "atlas" ili "mapa" -> 'karte'
+        6. **Top liste (Najčitanije):**
+            - Dozvoljeni brojevi su ISKLJUČIVO: [7, 30, 90, 180, 365].
+            - Ako korisnik kaže "zadnjih 10 dana", mapiraj na najblži (7).
+            - Ako kaže "zadnja dva mjeseca", mapiraj na (90) ili (30).
+            - "najčitanije", "popularno", "hitovi" -> koristi `top` parametar.
+            - "tjedan" -> 7, "mjesec" -> 30, "tromjesečje" -> 90, "pola godine" -> 180, "godina" -> 365.
+            - Ako ne kaže period, default je 30.
+        7. **Sortiranje (sort):**
+            - "po autoru", "abecedno pisci", "poredaj autore" -> `sort` na 1.
+            - "po naslovu", "abecedno knjige", "poredaj po imenu" -> `sort` na 2.
+            - Ako korisnik kaže "knjige iz 2024" ili "novo izdanje" -> postavi `godina` na 2024/2026, a `sort` ostavi null.
+            - Ako korisnik kaže "pokaži najnovije", "što je tek stiglo", "sortiraj po novom" -> `sort` na 3, a `godina` ostavi null.
+            - Ako kaže samo "novo", prioritet je `sort: 3` jer korisnici obično žele vidjeti zadnje obrađene knjige, a ne nužno samo one izdane ove godine.
+            - Ako je u kombinaciji s `top` (najčitanije), zanemari ovo i koristi logiku za popularnost.
 
         ### STRIKTNA PRAVILA:
         - Ako korisnik ne spomene specifičan parametar, vrati `null` (ili praznu listu za lokaciju).
@@ -92,7 +114,9 @@ class AdvancedUrlBuilder:
             "gradja": string ili null,
             "godina": integer ili null,
             "lokacija": array (npr. ["viskovo"]),
-            "dostupno_odmah": boolean
+            "dostupno_odmah": boolean,
+            "top": integer ili null,
+            "sort": integer ou null
         }}
         """
 
@@ -125,6 +149,23 @@ class AdvancedUrlBuilder:
         if metadata.get('pojam'):
             params.append(f"spv0={urllib.parse.quote(metadata['pojam'])}")
             params.append(f"spid0=40")
+
+        top_val = metadata.get('top')
+        requested_sort = metadata.get('sort')
+        allowed_tops = [7, 30, 90, 180, 365]
+        if top_val:
+            if top_val not in allowed_tops:
+                top_val = min(allowed_tops, key=lambda x: abs(x - top_val))
+
+            params.append(f"top={top_val}")
+            params.append("sort=4") # Sortiraj po popularnosti
+
+        elif requested_sort in [1, 2, 3]:
+            params.append(f"sort={requested_sort}")
+
+        else:
+            # Default sortiranje
+            params.append("sort=0")
 
         # Uzrast (fid 11)
         age_key = metadata.get('uzrast')
@@ -168,14 +209,15 @@ class AdvancedUrlBuilder:
             idx += 1
 
         # Građa (fid 2)
-        if metadata.get('gradja'):
-            val = urllib.parse.quote(metadata['gradja'])
+        media_key = metadata.get('gradja')
+        if media_key in self.media_types:
+            val = self.media_types[media_key]
             params.append(f"fid{idx}={self.fid_map['gradja']}&fv{idx}={val}")
             idx += 1
 
         # Godina (fid 3)
         requested_year = metadata.get('godina')
-        if requested_year:
+        if requested_year and requested_sort != 3:
             # Ako je korisnik tražio "zadnjih 5 godina", LLM će vratiti npr. 2025
             # jer se ne može slati više godina odjednom.
             year_code = self.get_year_code(int(requested_year))
