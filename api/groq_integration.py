@@ -366,6 +366,38 @@ class LibraryChatbot:
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
+        
+    async def get_intent(self, message: str) -> dict:
+        prompt = f"""
+        Analiziraj upit korisnika za knjižničnog bota i vrati ISKLJUČIVO JSON format.
+        
+        NAMJERE (intent):
+        - "opis": traži o čemu se radi u knjizi, radnju, sadržaj.
+        - "dostupnost": pita je li knjiga slobodna, dostupna, može li se rezervirati.
+        - "preporuka": traži preporuku za čitanje, ne zna što bi čitao.
+        - "kategorija": traži specifičnu građu (igračke, filmovi, glazba, e-knjige).
+        - "tema": traži knjige o nekoj stručnoj temi (povijest, psihologija, kuharica).
+        - "knjižnica": pita za radno vrijeme, upis, zakasnine, pravila.
+        - "najčitanije": traži popularne knjige, top liste.
+        - "novo": traži nove knjige ili novitete.
+        - "chat": običan pozdrav ili razgovor koji nije pretraga.
+
+        Vrati JSON objekt:
+        {{
+            "intent": "string",
+            "sub_intent": "string (npr. 'radno_vrijeme', 'igračke', 'psihologija')",
+            "entity": "string (naslov knjige, autor ili ključni pojam)"
+        }}
+
+        UPIT: "{message}"
+        """
+        response = await self.client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.1-8b-instant",
+            response_format={ "type": "json_object" }
+        )
+        import json
+        return json.loads(response.choices[0].message.content)    
 
 # Quick test
 if __name__ == "__main__":

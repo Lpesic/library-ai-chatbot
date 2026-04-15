@@ -16,7 +16,6 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 from api.groq_integration import LibraryChatbot
-import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -111,16 +110,6 @@ def extract_keywords(query: str) -> list:
     stop_words = ['knjiga', 'knjige', 'autor', 'o', 'na', 'u', 'i', 'za', 'mi']
     words = re.findall(r'\w+', query.lower())
     return [w for w in words if w not in stop_words and len(w) > 2][:3]
-
-def load_membership_info():
-    path = 'data/membership_info.json'
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get('full_text', '')
-    except Exception as e:
-        print(f"Greška pri učitavanju informacija o članstvu: {e}")
-        return ""
 
 async def search_catalog_for_book(query: str) -> Dict:
     """
@@ -256,6 +245,50 @@ async def generate_response(user_message: str) -> str:
                 logger.error(f"Greška pri provjeri dostupnosti: {e}")
                 return "Trenutno ne mogu provjeriti status knjige u katalogu."
 
+    async def smart_ai_description(client, book_data: dict, mode: str = "summary") -> str:
+        """
+        Mode može biti 'summary' (prirodni odgovor) ili 'full' (cijeli opis).
+        """
+        original_desc = details.get('description', '')
+        has_desc = original_desc and original_desc != "Opis nije dostupan."
+
+        context = f"""
+        Naslov: {book_data.get('title')}
+        Autor: {book_data.get('author')}
+        Teme: {', '.join(book_data.get('subjects', []))}
+        Tagovi: {', '.join(book_data.get('tags', []))}
+        Klasifikacija: {book_data.get('classifications', [{}])[0].get('description', '')}
+        Opis iz kataloga: {original_desc if has_desc else "NEMA OPISA"}
+        """
+        
+        if mode == "full" and has_desc:
+            # Samo formatiraj postojeći opis da ne bude "zid teksta"
+            prompt = f"Ovo je puni opis knjige iz kataloga. Preoblikuj ga u pregledne odlomke za chat na hrvatskom jeziku, nemoj ništa izbaciti:\n{original_desc}"
+        else:
+            prompt = f"""
+            Ti si knjižničar.
+            Na temelju sljedećih metapodataka iz knjižničnog kataloga, napiši kratak, 
+            zanimljiv i informativan opis knjige (2-3 rečenice). 
+            Kombiniraj originalni opis (ako postoji) s temama i tagovima da objasniš čitatelju koju tematiku knjiga obrađuje.
+            NEMOJ spominjati ID brojeve, signature ili interne oznake (npr. 55000313).
+            
+            PODACI:
+            {context}
+            
+            ODGOVOR (na hrvatskom jeziku):
+            """
+        
+        try:
+            response = await client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",
+                temperature=0.7 
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Greška u AI generiranju opisa: {e}")
+            return original_desc if has_desc else "Nažalost, ne mogu generirati detaljniji opis."
+
     # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
     if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
 
@@ -379,16 +412,20 @@ async def generate_response(user_message: str) -> str:
                     return "Žao mi je, ne mogu trenutno dohvatiti detalje o toj knjizi."
                 
                 # Sklapanje odgovora
-                desc = details.get('description', 'Opis nije dostupan.')
+                full_request_words = ['točan', 'tocan', 'cijeli', 'cijeli tekst', 'puni', 'originalni']
+                mode = "full" if any(w in query_lower for w in full_request_words) else "summary"
+
+                desc = await smart_ai_description(ai_chatbot.client, details, mode=mode)
                 
-                response = f"📖 **{details.get('title', book_title)}**\n"
-                response += f"✍️ Autor: {details.get('author', 'Nepoznato')}\n\n"
-                response += f"**O čemu se radi:**\n{desc}\n\n"
+                response = f"**{details.get('title')}**\n"
+                response += f"Autor: {details.get('author')}\n\n"
+
+                if mode == "full":
+                    response += f"**Puni opis iz kataloga:**\n{desc}"
+                else:
+                    response += f"**Ukratko:**\n{desc}"
                 
-                if details.get('subjects'):
-                    response += f"🏷️ *Teme: {', '.join(details['subjects'][:3])}*\n"
-                
-                response += f"\n🔗 Više detalja: {details.get('url')}"
+                response += f"\n\n🔗 [Više informacija u katalogu]({details.get('url')})"
                 return response
             else:
                 return (f"Nisam uspio pronaći opis za **'{keywords[0]}'**.\n"
