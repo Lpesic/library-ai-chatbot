@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import sys
 import os
 import logging
@@ -27,10 +27,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from scraper.availability_checker import ScraperAPIChecker
-    from scraper.category_scraper import CategoryScraper
     from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
-    from scraper.new_books_scraper import NewBooksScraper
     from scraper.book_detail_parser import BookDetailParser
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
@@ -58,14 +56,13 @@ app.add_middleware(
 )
 
 # Inicijaliziraj bazu i knowledge base
+groq_key = os.getenv('GROQ_API_KEY')
+GROQ_ENABLED = bool(groq_key)
+
 availability_checker = ScraperAPIChecker()
-new_books_scraper = NewBooksScraper()
-category_scraper = CategoryScraper()
 book_detail_parser = BookDetailParser()
 db = DatabaseManager()
 kb = KnowledgeBase()
-
-GROQ_ENABLED = bool(os.getenv('GROQ_API_KEY'))
 
 if GROQ_ENABLED:
     logger.info("Groq API key pronađen - ULTRA BRZO!")
@@ -87,6 +84,7 @@ except Exception as e:
 # Pydantic modeli za request/response
 class ChatRequest(BaseModel):
     message: str
+    history: Optional[List[Dict]] = None
     
 class ChatResponse(BaseModel):
     response: str
@@ -102,14 +100,6 @@ class Book(BaseModel):
     year: Optional[str] = None
     isbn: Optional[str] = None
     publisher: Optional[str] = None
-
-# --- CHATBOT LOGIKA - POMOCNE FUNKCIJE
-
-def extract_keywords(query: str) -> list:
-    """Izvlači ključne riječi"""
-    stop_words = ['knjiga', 'knjige', 'autor', 'o', 'na', 'u', 'i', 'za', 'mi']
-    words = re.findall(r'\w+', query.lower())
-    return [w for w in words if w not in stop_words and len(w) > 2][:3]
 
 async def search_catalog_for_book(query: str) -> Dict:
     """
@@ -203,425 +193,6 @@ async def search_catalog_for_book(query: str) -> Dict:
         traceback.print_exc()
         return None
 
-async def generate_response(user_message: str) -> str:
-    """Generira odgovor na korisničku poruku (template-based)"""
-    
-    query_lower = user_message.lower()
-    detected_category = None
-    #0. PROVJERA DOSTUPNOSTI 
-    if any(word in query_lower for word in ['dostupn', 'posuden', 'je li', 'jel', 'ima li na', 'rezerv', 'status']):
-        # Pokušaj pronaći naziv knjige
-        # Jednostavna logika - traži knjigu po ključnim riječima
-        keywords = extract_keywords(user_message)
-
-        if not keywords:
-            return ("Niste naveli naslov knjige. 🧐\n\n"
-                    "Molim vas napišite puni naslov ili autora.")
-        else:
-            # 1. Prvo pretraži bazu za ID knjige
-            book_id = None
-            
-            books = db.search_books(keywords[0], limit=3)
-            if books:
-                book = books[0]
-                book_id = book['id']             
-                
-            else:
-                # 2. Knjiga nije u bazi - scrape katalog
-                logger.info(f"Knjiga '{keywords[0]}' nije u lokalnoj bazi - tražim u katalogu...")
-                search_result = await search_catalog_for_book(keywords[0])
-                
-                if search_result:
-                    book_id = search_result['book_id']
-                else:
-                    return (f"Nisam pronašao knjigu **'{keywords[0]}'** u katalogu.\n\n"
-                        f"Provjerite katalog direktno:\n"
-                        f"🔗 https://katalog.halubajska-zora.hr")
-            try:
-                # Provjeri dostupnost
-                availability = await availability_checker.check_availability(book_id)
-                return availability_checker.format_availability_message(availability)
-            except Exception as e:
-                logger.error(f"Greška pri provjeri dostupnosti: {e}")
-                return "Trenutno ne mogu provjeriti status knjige u katalogu."
-
-    async def smart_ai_description(client, book_data: dict, mode: str = "summary") -> str:
-        """
-        Mode može biti 'summary' (prirodni odgovor) ili 'full' (cijeli opis).
-        """
-        original_desc = details.get('description', '')
-        has_desc = original_desc and original_desc != "Opis nije dostupan."
-
-        context = f"""
-        Naslov: {book_data.get('title')}
-        Autor: {book_data.get('author')}
-        Teme: {', '.join(book_data.get('subjects', []))}
-        Tagovi: {', '.join(book_data.get('tags', []))}
-        Klasifikacija: {book_data.get('classifications', [{}])[0].get('description', '')}
-        Opis iz kataloga: {original_desc if has_desc else "NEMA OPISA"}
-        """
-        
-        if mode == "full" and has_desc:
-            # Samo formatiraj postojeći opis da ne bude "zid teksta"
-            prompt = f"Ovo je puni opis knjige iz kataloga. Preoblikuj ga u pregledne odlomke za chat na hrvatskom jeziku, nemoj ništa izbaciti:\n{original_desc}"
-        else:
-            prompt = f"""
-            Ti si knjižničar.
-            Na temelju sljedećih metapodataka iz knjižničnog kataloga, napiši kratak, 
-            zanimljiv i informativan opis knjige (2-3 rečenice). 
-            Kombiniraj originalni opis (ako postoji) s temama i tagovima da objasniš čitatelju koju tematiku knjiga obrađuje.
-            NEMOJ spominjati ID brojeve, signature ili interne oznake (npr. 55000313).
-            
-            PODACI:
-            {context}
-            
-            ODGOVOR (na hrvatskom jeziku):
-            """
-        
-        try:
-            response = await client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant",
-                temperature=0.7 
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Greška u AI generiranju opisa: {e}")
-            return original_desc if has_desc else "Nažalost, ne mogu generirati detaljniji opis."
-
-    # 1. PREPORUKE - Provjeri PRVO (prije općih upita o knjigama)
-    if any(word in query_lower for word in ['preporuč', 'preporuka', 'preporučuješ', 'predloži', 'što čitati', 'što da čitam', 'za čitanje', 'knjiga za']):
-
-        # PRVO: Provjeri je li tražena specifična kategorija (ne-knjige)
-        category_keywords = {
-            # Igračke
-            'igračk': 'igračke',
-            'igrac': 'igračke',
-            
-            # Glazba
-            'glazb': 'glazbena građa',
-            'cd': 'glazbena građa',
-            'musik': 'glazbena građa',
-            'audio cd': 'glazbena građa',
-            
-            # Filmovi / Video
-            'film': 'vizualna građa',
-            'dvd': 'vizualna građa',
-            'video': 'vizualna građa',
-            
-            # Audioknjige
-            'audioknjig': 'zvučna građa',
-            'audio knjig': 'zvučna građa',
-            
-            # E-knjige
-            'e-knjig': 'e-knjiga',
-            'eknjig': 'e-knjiga',
-            'ebook': 'e-knjiga',
-            'digital': 'e-knjiga',
-            
-            # Časopisi
-            'časopis': 'časopis',
-            'casopis': 'časopis',
-            'magazin': 'časopis',
-            'revij': 'časopis',
-            
-            # Note
-            'not': 'notna građa',
-            'partitur': 'notna građa',
-            
-            # Karte
-            'kart': 'kartografska građa',
-            'zemljovid': 'kartografska građa',
-            'atlas': 'kartografska građa',
-            
-            # Grafika
-            'grafik': 'grafička građa',
-        }
-
-        for keyword, category in category_keywords.items():
-            if keyword in query_lower:
-                detected_category = category
-                break
-
-        if detected_category:
-            logger.info(f"KATEGORIJA: Detektirana - {detected_category}")
-            items = await category_scraper.get_items_by_category(
-                category=detected_category,
-                limit=5,
-                random_selection=True
-            )
-            return category_scraper.format_category_message(items, detected_category)        
-       
-        # INAČE: Pretraži knjige po temi
-        keywords = extract_keywords(user_message)
-        
-        books = []
-        if keywords and len(keywords) > 0:
-            # Pretraži po temi
-            for keyword in keywords[:2]:
-                books.extend(db.search_books(keyword, limit=4))
-        
-        # Ako nema knjiga po temi ili nema teme, daj popularne
-        if not books:
-            books = db.get_all_books(limit=5)
-        
-        if books:
-            # Ukloni duplikate
-            unique_books = {book['id']: book for book in books}.values()
-            books_list = list(unique_books)[:5]
-            
-            response = "📚 **Evo mojih preporuka:**\n\n"
-            for i, book in enumerate(books_list, 1):
-                response += f"{i}. **{book['title']}** - {book['author']}"
-                if book.get('year'):
-                    response += f" ({book['year']})"
-                response += "\n"
-            
-            response += "\n💡 Za više detalja ili rezervaciju, provjerite katalog: https://katalog.halubajska-zora.hr"
-            return response
-        else:
-            return "Trenutno nemam knjiga u bazi za preporuku. Provjerite katalog: https://katalog.halubajska-zora.hr"
-    
-    # 2. OPIS KNJIGE
-    if any(word in query_lower for word in ['o čemu', 'o cemu', 'opis knjige', 'o knjizi', 'radnja', 'tema knjige', 'sadržaj knjige', 'sažetak', 'sazetak']):
-        logger.info("OPIS KNJIGE: Dohvaćam anotaciju...")
-        
-        keywords = extract_keywords(user_message)
-        
-        if keywords:
-            # 1. Pronađi knjigu (u bazi ili preko kataloga ako nije u bazi)
-            book_id = None
-            book_title = ""
-            
-            books = db.search_books(keywords[0], limit=1)
-            if books:
-                book_id = books[0]['id']
-                book_title = books[0]['title']
-            else:
-                # Ako nije u bazi, probaj naći ID na katalogu
-                search_result = await search_catalog_for_book(keywords[0])
-                if search_result:
-                    book_id = search_result['book_id']
-                    book_title = search_result['title']
-
-            if book_id:
-                logger.info(f"Dohvaćam detalje za ID: {book_id}")
-                details = book_detail_parser.parse_book_detail(book_id)
-                
-                if 'error' in details:
-                    return "Žao mi je, ne mogu trenutno dohvatiti detalje o toj knjizi."
-                
-                # Sklapanje odgovora
-                full_request_words = ['točan', 'tocan', 'cijeli', 'cijeli tekst', 'puni', 'originalni']
-                mode = "full" if any(w in query_lower for w in full_request_words) else "summary"
-
-                desc = await smart_ai_description(ai_chatbot.client, details, mode=mode)
-                
-                response = f"**{details.get('title')}**\n"
-                response += f"Autor: {details.get('author')}\n\n"
-
-                if mode == "full":
-                    response += f"**Puni opis iz kataloga:**\n{desc}"
-                else:
-                    response += f"**Ukratko:**\n{desc}"
-                
-                response += f"\n\n🔗 [Više informacija u katalogu]({details.get('url')})"
-                return response
-            else:
-                return (f"Nisam uspio pronaći opis za **'{keywords[0]}'**.\n"
-                        "Pokušajte s točnijim naslovom ili provjerite ovdje: https://katalog.halubajska-zora.hr")
-        
-        return "Navedite naslov knjige čiji vas opis zanima."
-
-    # 3. TRAZENJE PO TEMI
-    if detected_category:
-        logger.info(f"KATEGORIJA: Detektirana - {detected_category}")
-        items = await category_scraper.get_items_by_category(
-            category=detected_category,
-            limit=5,
-            random_selection=True
-        )
-        return category_scraper.format_category_message(items, detected_category) 
-    
-    # PROVJERA: Je li tražena tema/sadržaj (UDK)
-    subject_keywords = [
-        'psihologi', 'medicin', 'politi', 'povijes', 'socio', 'geograf',
-        'biografij', 'lingvisti', 'jezik', 'etnograf', 'folklor', 'sport',
-        'prav', 'filozof', 'ekonomij', 'zoologi', 'slikarst', 'računarst',
-        'racunarst', 'arhitektur', 'biologi', 'kazališt', 'kazalist', 'fizik',
-        'astrono', 'matemati', 'botanik', 'fotograf', 'budiz', 'islam',
-        'kemij', 'arheologi', 'hrvatska književnost', 'hrvatska knjizevnost',
-        'književnost', 'knjizevnost', 'prolegomen', 'kršćanst', 'krscanst',
-        'odgoj', 'obrazovan', 'domaćinst', 'domacinst', 'glazb'
-    ]
-
-    detected_subject = None
-    for keyword in subject_keywords:
-        if keyword in query_lower:
-            # Pronađi punu formu teme
-            for udk_key in category_scraper.udk_categories.keys():
-                if keyword in udk_key or udk_key in query_lower:
-                    detected_subject = udk_key
-                    break
-            if detected_subject:
-                break
-
-    if detected_subject:
-        logger.info(f"TEMA: Detektirana - {detected_subject}")
-        items = await category_scraper.get_items_by_subject(
-            subject=detected_subject,
-            limit=8,
-            random_selection=True
-        )
-        return category_scraper.format_subject_message(items, detected_subject)            
-    
-    language_keywords = [
-    'engleski', 'njemacki', 'njemački', 'talijanski', 'francuski', 
-    'latinski', 'grčki', 'grcki', 'španjolski', 'spanjolski',
-    'srpski', 'bosanski', 'crnogorski', 'slovenski', 'makedonski',
-    'ruski', 'kineski', 'japanski', 'portugalski', 'hebrejski',
-    'english', 'german', 'italian', 'french', 'latin', 'greek', 'spanish'
-    ]
-
-    detected_language = None
-    for keyword in language_keywords:
-        if keyword in query_lower:
-            detected_language = keyword
-            break
-
-    #4. Provjera jezika        
-    if detected_language:
-        logger.info(f"JEZIK: Detektiran - {detected_language}")
-        items = await category_scraper.get_items_by_language(
-            language=detected_language,
-            limit=8,
-            random_selection=True
-        )
-        return category_scraper.format_language_message(items, detected_language)
-
-    # 4. Pitanja o knjižnici
-    if any(word in query_lower for word in ['učlaniti', 'članarina', 'upis']):
-        return ("📚 **Učlanjenje u knjižnicu**\n\n"
-                "Za učlanjenje trebate osobnu iskaznicu i pristupnicu. "
-                "Članarina se plaća godišnje po kategorijama.\n\n"
-                "Više na: https://www.halubajska-zora.hr")
-    
-    if any(word in query_lower for word in ['radno vrijeme', 'otvoreno', 'kada', 'kada radi']):
-        return ("⏰ **Radno vrijeme:**\n\n"
-                "• Radnim danima: 8:00 - 20:00\n"
-                "• Subotom: 8:00 - 14:00\n"
-                "• Nedjeljom: zatvoreno\n\n"
-                "Više na: https://www.halubajska-zora.hr")
-    
-    if any(word in query_lower for word in ['posuditi', 'posudba', 'koliko knjiga', 'rok posudbe']):
-        return ("📖 **Posudba knjiga:**\n\n"
-                "• Do 4 knjige istovremeno\n"
-                "• Rok: 30 dana\n"
-                "• Produženje moguće ako nije rezervirana\n\n"
-                "Za rezervaciju: https://katalog.halubajska-zora.hr")
-    
-    if any(word in query_lower for word in ['e-knjig', 'digitalne', 'online', 'audio']):
-        return ("💻 **E-knjige i audioknige:**\n\n"
-                "Dostupne putem ZaKi Book platforme.\n"
-                "• Do 4 naslova mjesečno\n"
-                "• Na 4 uređaja\n\n"
-                "Više: https://www.halubajska-zora.hr")
-    
-    if any(word in query_lower for word in ['kasn', 'kazna', 'zakasnio']):
-        return ("⚠️ **Kašnjenje:**\n\n"
-                "Za svaki dan kašnjenja naplaćuje se kazna.\n"
-                "Preporučujemo pravovremeno vraćanje ili produženje!")
-    
-    if any(word in query_lower for word in ['produžiti', 'produženje']):
-        return ("🔄 **Produženje posudbe:**\n\n"
-                "Možete produžiti:\n"
-                "• Online - 'Moja iskaznica'\n"
-                "• Telefonski\n"
-                "• Osobno\n\n"
-                "Ako knjiga nije rezervirana.")
-    
-    # 5. Pretraživanje knjiga (specifično)
-    if any(word in query_lower for word in ['knjiga o', 'knjige o', 'autor', 'naslov', 'imate li', 'imaš li']):
-        keywords = extract_keywords(user_message)
-        
-        if keywords:
-            books = []
-            for keyword in keywords[:2]:
-                books.extend(db.search_books(keyword, limit=5))
-            
-            if books:
-                unique_books = {book['id']: book for book in books}.values()
-                books_list = list(unique_books)[:5]
-                
-                response = f"🔍 **Pronašao sam {len(books_list)} {'knjigu' if len(books_list) == 1 else 'knjige'}:**\n\n"
-                
-                for i, book in enumerate(books_list, 1):
-                    response += f"{i}. **{book['title']}**\n"
-                    response += f"   📝 Autor: {book['author']}\n"
-                    if book.get('year'):
-                        response += f"   📅 {book['year']}\n"
-                    if book.get('isbn'):
-                        response += f"   📚 ISBN: {book['isbn']}\n"
-                    response += "\n"
-                
-                response += "💡 Za dostupnost: https://katalog.halubajska-zora.hr"
-                return response
-    
-    # 6. Knowledge base search
-    kb_results = kb.search(user_message, n_results=2)
-    
-    if kb_results and kb_results[0].get('distance', 1.0) < 0.7:
-        content = kb_results[0]['content']
-        if len(content) > 300:
-            content = content[:300] + "..."
-        
-        return content + "\n\nViše: https://www.halubajska-zora.hr"
-    
-    #7. NOVE KNJIGE
-    if any(word in query_lower for word in ['nove knjige', 'novi naslovi', 'što ima novo', 'nova', 'novo', 'noviteti', 'prinove', 'najnovije']):
-        logger.info("NOVE KNJIGE: Dohvaćam...")
-        books = await new_books_scraper.get_new_books(days=365, limit=8)
-        return new_books_scraper.format_new_books_message(books)
-
-    #8. NAJČITANIJE KNJIGE
-    if any(word in query_lower for word in ['najčitan', 'najpopular', 'top knjig', 'popularne knjige', 'hitovi']):
-        logger.info("NAJČITANIJE: Dohvaćam...")
-        
-        # Detektiraj period
-        days = 30  # Default
-        number_match = re.search(r'(\d+)\s*(dan|daN)', query_lower)
-        if number_match:
-            requested_days = int(number_match.group(1))
-            # Mapiranje na najbliži validan period
-            valid_periods = [7, 30, 90, 180, 365]
-            days = min(valid_periods, key=lambda x: abs(x - requested_days))
-            logger.info(f"Detektiran period: {requested_days} → mapiran na {days} dana")
-        
-        if any(word in query_lower for word in ['tjedan', 'sedmic', '7']):
-            days = 7
-        elif any(word in query_lower for word in ['mjesec', 'mjeseca', '30']) and '3' not in query_lower and '6' not in query_lower:
-            days = 30
-        elif any(word in query_lower for word in ['3 mjesec', 'tri mjesec', '90']):
-            days = 90
-        elif any(word in query_lower for word in ['6 mjesec', 'pola god', '180', 'šest mjesec']):
-            days = 180
-        elif any(word in query_lower for word in ['godin', 'godine', '365']):
-            days = 365
-        
-        logger.info(f"Konačni period: {days} dana")
-        
-        books = await category_scraper.get_most_read(days=days, limit=10)
-        return category_scraper.format_most_read_message(books, days)
-   
-
-    #POSLJEDNJE - Default
-    return ("📚 **Dobrodošli!** Mogu vam pomoći s:\n\n"
-            "• Informacijama o knjižnici (radno vrijeme, članstvo...)\n"
-            "• Pretraživanjem knjiga po naslovu ili autoru\n"
-            "• Preporukama za čitanje\n\n"
-            "Što vas zanima?")
-
-
 # ENDPOINTS 
 @app.get("/api")
 async def api_root():
@@ -666,18 +237,6 @@ async def check_book_availability(book_id: str):
         # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
         return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
 
-@app.get("/api/books/new")
-async def get_new_books_endpoint(days: int = 365, limit: int = 10):
-    """Dohvati nove knjige"""
-    try:
-        books = await new_books_scraper.get_new_books(days=days, limit=limit)
-        return {
-            "count": len(books),
-            "books": books
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_ai(request: ChatRequest):
     """Groq-powered chat endpoint (NAJBRŽI!)"""
@@ -688,7 +247,11 @@ async def chat_ai(request: ChatRequest):
         )
     
     try:
-        response = await ai_chatbot.chat(request.message)
+        history = request.history[-10:] if request.history else []
+        response = await ai_chatbot.chat(
+            user_message=request.message,
+            conversation_history=history
+            )
         return {"response": response}
     
     except Exception as e:
@@ -727,20 +290,6 @@ async def get_book(book_id: str):
         
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/books/popular")
-async def get_popular_books(limit: int = 10):
-    """
-    Dohvati popularne knjige
-    """
-    try:
-        books = db.get_all_books(limit=limit)
-        return {
-            "count": len(books),
-            "books": books
-        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

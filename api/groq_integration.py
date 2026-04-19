@@ -2,35 +2,46 @@
 Groq Integration - NAJBRŽA AI integracija
 """
 
-import os, json
+import os, json, sys
 import logging
 import sqlite3
 from typing import Dict, List, Optional
 from groq import AsyncGroq
 
 logger = logging.getLogger(__name__)
-
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class LibraryChatbot:
     """Groq-powered library chatbot"""
     
-    def load_membership_info(self):
+    def load_membership_info(self) -> str:
+        """Učitaj informacije o članstvu"""
         path = 'data/membership_info.json'
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+                if 'sections' in data:
+                    all_text = []
+                    for section in data['sections']:
+                        title = section.get('title', '')
+                        content = " ".join(section.get('content', []))
+                        all_text.append(f"--- {title} ---\n{content}")
+                    return "\n\n".join(all_text)
+                
                 return data.get('full_text', '')
         except Exception as e:
-            print(f"Greška pri učitavanju informacija o članstvu: {e}")
+            print(f"Nisam uspio učitati membership_info.json: {e}")
             return ""
 
     def __init__(self):
+        from scraper.advanced_url_builder import AdvancedUrlBuilder
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             logger.error("GROQ_API_KEY nije postavljen u .env!")
             self.client = None
             return
-        
+        self.url_builder = AdvancedUrlBuilder(api_key)
+
         # Async Groq client
         self.client = AsyncGroq(api_key=api_key)
         
@@ -45,21 +56,36 @@ class LibraryChatbot:
         ### INFORMACIJE O KNJIŽNICI (Članstvo i pravila):
         {info}
 
-        Tvoja uloga:
+        ### TVOJA ULOGA:
         - Pomažeš korisnicima s informacijama o knjižnici
         - Pretražuješ katalog knjiga
         - Provjereš dostupnost knjiga
         - Preporučuješ knjige
 
-        VAŽNO: Uvijek odgovaraj na hrvatskom jeziku.
+        ### PRAVILA:
+        - UVIJEK odgovaraj na hrvatskom jeziku
+        - Budi koncizan (2-4 rečenice)
+        - Koristi dostupne funkcije za točne podatke - NE izmišljaj!
+        - NE KORISTI 'search_catalog' za pitanja o radnom vremenu, članarini, lokaciji ili kontaktima.
+        - Ako korisnik odgovara s "da", "ne", "ok" - poveži to s prethodnim pitanjem 
 
-        Informacije o knjižnici:
-        - Radno vrijeme: Pon-Pet 8:00-20:00, Sub 8:00-14:00, Ned zatvoreno
-        - Članarina: Besplatna za stanovnike grada
-        - Posudba: Do 5 knjiga na 30 dana
-        - Web: https://katalog.halubajska-zora.hr
+        ### DOSTUPNE FUNKCIJE:
+        1. **search_catalog** - Pretraživanje kataloga po BILO KOJIM kriterijima:
+        - Teme (psihologija, sport, medicina...)
+        - Jezici (engleski, latinski, slovenski...)
+        - Vrste građe (film, CD, igračka, e-knjiga...)
+        - Noviteti (nove knjige)
+        - Najpopularnije (top knjige)
+        - Kombinacije (npr. "filmovi o medicini na slovenskom")
 
-        Budi koncizan - maksimalno 3-4 rečenice osim ako korisnik ne traži detaljno objašnjenje.
+        2. **check_availability** - Provjera dostupnosti pojedine knjige
+
+        3. **get_book_description** - Opis knjige (kad korisnik pita "o čemu se radi")
+
+        ### PRAVILA ZA TOOL USE:
+        - Kada pozivaš funkciji, koristi argumente SAMO u validnom JSON formatu
+        - Nemoj dodavati nikakav tekst niti XML oznake poput '<function=' oko poziva alata
+        - Ako koristiš 'search_catalog', upit treba biti običan string
         """
         
         # Function definitions (Groq podržava tool use!)
@@ -69,116 +95,67 @@ class LibraryChatbot:
         """Definiraj funkcije koje AI može koristiti"""
         
         return [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_books",
-                    "description": "Pretraži knjige u katalogu prema naslovu ili autoru",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Ključna riječ za pretragu (naslov ili autor)"
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "description": "Broj rezultata (default 5)",
-                                "default": 5
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                }
-            },
+            # DOSTUPNOST
             {
                 "type": "function",
                 "function": {
                     "name": "check_availability",
-                    "description": "Provjeri je li knjiga dostupna za posudbu i na kojim lokacijama",
+                    "description": "Provjeri je li knjiga dostupna za posudbu i na kojim lokacijama.Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "book_id": {
+                            "book_title": {
                                 "type": "string",
-                                "description": "ID knjige iz kataloga"
+                                "description": "Točan naslov knjige iz kataloga"
                             }
                         },
-                        "required": ["book_id"]
+                        "required": ["book_title"]
                     }
                 }
             },
+            # OPIS KNJIGE
             {
                 "type": "function",
                 "function": {
-                    "name": "get_new_books",
-                    "description": "Dohvati najnovije nabavljene knjige u knjižnici",
+                    "name": "get_book_description",
+                    "description": "Dohvati opis/anotaciju knjige. Koristi kad korisnik pita 'o čemu se radi', 'opis knjige', 'radnja', 'tema knjige', 'sažetak'",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "days": {
-                                "type": "integer",
-                                "description": "Period u danima (default 365)"
+                            "book_title": {
+                                "type": "string",
+                                "description": "Naslov knjige"
                             },
-                            "limit": {
-                                "type": "integer",
-                                "description": "Broj knjiga (default 10)"
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_most_read",
-                    "description": "Dohvati najčitanije/najpopularnije knjige",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "days": {
-                                "type": "integer",
-                                "description": "Period: 7, 30, 90, 180 ili 365 dana"
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_by_subject",
-                    "description": "Pretraži knjige po tematskom području (psihologija, sport, povijest, medicina...)",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "subject": {
+                            "mode": {
                                 "type": "string",
-                                "description": "Tematsko područje"
+                                "description": "Tip opisa",
+                                "enum": ["summary", "full"],
+                                "default": "summary"
                             }
                         },
-                        "required": ["subject"]
+                        "required": ["book_title"]
                     }
                 }
             },
+            # PRETRAGA KNJIGA PO SVIM PARAMETRIMA - FILTERI I SORTIRANJE
             {
-                "type": "function",
-                "function": {
-                    "name": "search_by_language",
-                    "description": "Pretraži knjige na određenom jeziku",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "language": {
-                                "type": "string",
-                                "description": "Jezik (hrvatski, engleski, njemački, latinski...)"
-                            }
-                        },
-                        "required": ["language"]
-                    }
+            "type": "function",
+            "function": {
+                "name": "search_catalog",
+                "description": "Koristi isključivo za SVE upite o knjigama: pretraga po temi, jeziku, vrsti građe, novitetima, najčitanijima ili preporukama.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string", 
+                            "description": "Originalni upit korisnika (npr. 'nove knjige na engleskom' ili 'psihologija')"
+                        }
+                    },
+                    "required": ["query"]
                 }
             }
-        ]
+        }
+    ]
     
     async def chat(
         self, 
@@ -188,7 +165,7 @@ class LibraryChatbot:
         """Chat sa Groq modelom"""
         
         if not self.client:
-            return "⚠️ Groq API nije konfiguriran. Postavi GROQ_API_KEY u .env datoteci."
+            return "Groq API nije konfiguriran. Postavi GROQ_API_KEY u .env datoteci."
         
         try:
             logger.info(f"Groq request: {user_message}")
@@ -196,14 +173,24 @@ class LibraryChatbot:
             # Pripremi poruke
             messages = [
                 {"role": "system", "content": self.system_prompt},
+                {"role": "system", "content": "Tool calls must be valid JSON. No markdown, no tags."},
                 {"role": "user", "content": user_message}
             ]
-            
+
+            if conversation_history:
+                filtered_history = [
+                    msg for msg in conversation_history
+                    if msg.get("role") in ["user", "asistant"]
+                ]
+                messages.extend(filtered_history[-8:])
+                logger.info(f"Dodao {len(filtered_history[-8:])} poruka iz povijesti")
+
+            messages.append({"role": "user", "content": user_message})    
             # Pozovi Groq sa tool use
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                tools=self.tools,
+                tools=self.tools, 
                 tool_choice="auto",  # AI odlučuje kad koristiti funkcije
                 temperature=0.3,
                 max_tokens=1000
@@ -227,35 +214,34 @@ class LibraryChatbot:
     
     async def _handle_function_calls(self, response_message, messages: List[Dict]) -> str:
         """Obradi function calls"""
-        
+        import re
+
         # Dodaj AI-ov odgovor u povijest
         messages.append({
-            "role": "assistant",
-            "content": response_message.content or "",
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments
-                    }
-                }
-                for tc in response_message.tool_calls
-            ]
-        })
+                "role": "assistant",
+                "content": response_message.content or "",
+                "tool_calls": response_message.tool_calls
+            })
         
         # Izvršava funkcije
         for tool_call in response_message.tool_calls:
             function_name = tool_call.function.name
+            raw_args = tool_call.function.arguments
+
+            try:
+                # Prvo pokušaj normalno
+                function_args = json.loads(raw_args)
+            except json.JSONDecodeError:
+                logger.warning(f"Groq poslao loš format: {raw_args}. Pokušavam popraviti...")
+                match = re.search(r'(\{.*\})', raw_args, re.DOTALL)
+                if match:
+                    try:
+                        function_args = json.loads(match.group(1))
+                    except:
+                        continue
+                else:
+                    continue
             
-            # Parse JSON argumenta
-            import json
-            function_args = json.loads(tool_call.function.arguments)
-            
-            logger.info(f"Executing: {function_name}({function_args})")
-            
-            # Pozovi funkciju
             function_response = await self._execute_function(function_name, function_args)
             
             # Dodaj rezultat u povijest
@@ -263,142 +249,235 @@ class LibraryChatbot:
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "name": function_name,
-                "content": str(function_response)
+                "content": json.dumps(function_response, ensure_ascii=False)
             })
         
         # Pozovi Groq ponovno sa rezultatima
-        final_response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0.3,
-            max_tokens=1000
-        )
-        
-        return final_response.choices[0].message.content
+        try:
+            final_response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.0, # za pozivanje funkcija treba nam manja maštovitost
+                max_tokens=1000
+            )
+            return final_response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Greška u finalnom odgovoru: {e}")
+            return "Pronašao sam rezultate, ali ih ne mogu prikazati. Pokušaj ponovno."
     
     async def _execute_function(self, function_name: str, function_args: Dict):
         """Izvršava pozvanu funkciju"""
-        
-        # Import scrapers
+                   
         from scraper.availability_checker import ScraperAPIChecker
-        from scraper.new_books_scraper import NewBooksScraper
-        from scraper.category_scraper import CategoryScraper
-        
-        availability_checker = ScraperAPIChecker()
-        new_books_scraper = NewBooksScraper()
-        category_scraper = CategoryScraper()
-        
-        # Helper za database
-        def search_books_db(query: str, limit: int = 5):
-            try:
-                conn = sqlite3.connect('data/library.db')
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    SELECT id, title, author, year, publisher 
-                    FROM books 
-                    WHERE title LIKE ? OR author LIKE ?
-                    LIMIT ?
-                """, (f'%{query}%', f'%{query}%', limit))
-                
-                rows = cursor.fetchall()
-                conn.close()
-                
-                if not rows:
-                    return {"books": [], "message": f"Nema rezultata za '{query}'"}
-                
-                return {
-                    "books": [dict(row) for row in rows],
-                    "count": len(rows)
-                }
-            except Exception as e:
-                logger.error(f"DB error: {e}")
-                return {"error": str(e)}
-        
+        from scraper.book_detail_parser import BookDetailParser
+        from scraper.advanced_url_builder import AdvancedUrlBuilder
+        from scraper.universal_scraper import UniversalScraper
+
         try:
-            # PRETRAGA KNJIGA
-            if function_name == "search_books":
+            # PRETRAGA KATALOGA
+            if function_name == "search_catalog":
                 query = function_args.get("query")
-                limit = function_args.get("limit", 5)
-                return search_books_db(query, limit)
-            
+                
+                logger.info(f"RELEJ: Prosljeđujem '{query}' u AdvancedUrlBuilder")
+
+                url_builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
+                metadata = url_builder.analyze_query(query)
+                target_url = url_builder.build_url(metadata)
+
+                logger.info(f"URL: {target_url}")
+
+                scraper = UniversalScraper()
+                items = await scraper.fetch_and_parse(
+                    target_url,
+                    limit=8,
+                    random_selection=True
+                )
+
+                return {
+                "items": items, 
+                "count": len(items),
+                "query": query
+            }
+
             # DOSTUPNOST
             elif function_name == "check_availability":
-                book_id = function_args.get("book_id")
-                result = await availability_checker.check_availability(book_id)
-                return result
-            
-            # NOVE KNJIGE
-            elif function_name == "get_new_books":
-                days = function_args.get("days", 365)
-                limit = function_args.get("limit", 10)
+                book_title = function_args.get("book_title") or function_args.get("book_id")
+
+                if book_title == 'None':
+                    book_title = None
+
+                logger.info(f"Provjera dostupnosti za: '{book_title}'")
                 
-                books = await new_books_scraper.get_new_books(days=days, limit=limit)
-                return {"books": books, "count": len(books)}
+                book_id = await self._find_book_id(book_title)
+
+                if not book_id:
+                    return {"error": f"Nisam pronašao knjigu '{book_title}'"}
+
+                checker = ScraperAPIChecker()
+                availability = await checker.check_availability(book_id)
+
+                return availability
             
-            # NAJČITANIJE
-            elif function_name == "get_most_read":
-                days = function_args.get("days", 30)
+            # OPIS KNJIGE
+            elif function_name == "get_book_description":
+                book_title = function_args.get("book_title")
                 
-                books = await category_scraper.get_most_read(days=days, limit=10)
-                return {"books": books, "count": len(books)}
-            
-            # TEMA
-            elif function_name == "search_by_subject":
-                subject = function_args.get("subject")
+                logger.info(f"📖 Get description: '{book_title}'")
                 
-                items = await category_scraper.get_items_by_subject(subject=subject, limit=8)
-                return {"items": items, "count": len(items)}
-            
-            # JEZIK
-            elif function_name == "search_by_language":
-                language = function_args.get("language")
+                # Pronađi book_id
+                book_id = await self._find_book_id(book_title)
                 
-                items = await category_scraper.get_items_by_language(language=language, limit=8)
-                return {"items": items, "count": len(items)}
-            
+                if not book_id:
+                    return {"error": f"Nisam pronašao knjigu '{book_title}'"}
+                
+                # Dohvati detalje
+                parser = BookDetailParser()
+                details = parser.parse_book_detail(book_id)
+                
+                if 'error' in details:
+                    return {"error": "Ne mogu dohvatiti detalje knjige"}
+                
+                # AI generira opis
+                description = await self._generate_smart_description(details)
+                
+                return {
+                    "title": details.get('title'),
+                    "author": details.get('author'),
+                    "description": description,
+                    "year": details.get('year'),
+                    "url": details.get('url')
+                }
+         
             else:
-                return {"error": f"Unknown function: {function_name}"}
+                return {"error": f"Nepoznata funkcija: {function_name}"}
         
         except Exception as e:
-            logger.error(f"Function execution error: {e}")
+            logger.error(f"Greška izvršenja funkcije: {e}")
             import traceback
             traceback.print_exc()
-            return {"error": str(e)}
+            return {"error": str(e)} 
         
-    async def get_intent(self, message: str) -> dict:
-        prompt = f"""
-        Analiziraj upit korisnika za knjižničnog bota i vrati ISKLJUČIVO JSON format.
+    async def _find_book_id(self, book_title: str) -> Optional[str]:
+        """Pronađi book_id u bazi ili katalogu"""
         
-        NAMJERE (intent):
-        - "opis": traži o čemu se radi u knjizi, radnju, sadržaj.
-        - "dostupnost": pita je li knjiga slobodna, dostupna, može li se rezervirati.
-        - "preporuka": traži preporuku za čitanje, ne zna što bi čitao.
-        - "kategorija": traži specifičnu građu (igračke, filmovi, glazba, e-knjige).
-        - "tema": traži knjige o nekoj stručnoj temi (povijest, psihologija, kuharica).
-        - "knjižnica": pita za radno vrijeme, upis, zakasnine, pravila.
-        - "najčitanije": traži popularne knjige, top liste.
-        - "novo": traži nove knjige ili novitete.
-        - "chat": običan pozdrav ili razgovor koji nije pretraga.
+        if not book_title or book_title == 'None':
+            logger.warning("Pokušaj pretrage ID-a s praznim naslovom (None).")
+            return None
 
-        Vrati JSON objekt:
-        {{
-            "intent": "string",
-            "sub_intent": "string (npr. 'radno_vrijeme', 'igračke', 'psihologija')",
-            "entity": "string (naslov knjige, autor ili ključni pojam)"
-        }}
+        # 1. Pretraži bazu
+        try:
+            conn = sqlite3.connect('data/library.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id FROM books 
+                WHERE title LIKE ? 
+                LIMIT 1
+            """, (f'%{book_title}%',))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return row['id']
+        
+        except Exception as e:
+            logger.error(f"DB search error: {e}")
+        
+        # 2. Pretraži katalog
+        try:
+            scraper_api_key = os.getenv('SCRAPER_API_KEY')
+            if not scraper_api_key:
+                return None
+            
+            import urllib.parse
+            import httpx
+            from bs4 import BeautifulSoup
+            import re
+            
+            encoded_query = urllib.parse.quote(book_title, safe='')
+            search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?currentPage=1&searchById=1&sort=0&age=0&spid0=1&spv0={encoded_query}"
+            
+            params = {
+                'api_key': scraper_api_key,
+                'url': search_url,
+                'country_code': 'hr',
+                'render': 'false'
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get("http://api.scraperapi.com/", params=params)
+            
+            if response.status_code != 200:
+                return None
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            book_divs = soup.find_all('div', class_='divBibZapis')
+            
+            if not book_divs:
+                return None
+            
+            first_book = book_divs[0]
+            title_link = first_book.find('a', class_='aNaslovLink')
+            
+            if not title_link:
+                return None
+            
+            href = title_link.get('href', '')
+            match = re.search(r'selectedId=(\d+)', href)
+            
+            if match:
+                return match.group(1)
+        
+        except Exception as e:
+            logger.error(f"Catalog search error: {e}")
+        
+        return None
+    
+    async def _generate_smart_description(self, book_data: Dict) -> str:
+        """Generiraj pametan opis knjige pomoću AI-ja"""
+        
+        original_desc = book_data.get('description', '')
+        has_desc = original_desc and original_desc != "Opis nije dostupan."
+        
+        if not has_desc:
+            # Nema opisa - generiraj iz metapodataka
+            context = f"""
+            Naslov: {book_data.get('title')}
+            Autor: {book_data.get('author')}
+            Teme: {', '.join(book_data.get('subjects', [])[:3])}
+            Tagovi: {', '.join(book_data.get('tags', []))}
+            Opis iz kataloga: {original_desc if has_desc else "NEMA OPISA"}
+            """
+            
+            prompt = f"""Na temelju metapodataka, napiši kratak, zanimljiv i informativan opis knjige (2-3 rečenice) na hrvatskom.
+            Kombiniraj originalni opis (ako postoji) s temama i tagovima da objasniš čitatelju koju tematiku knjiga obrađuje.
+            NEMOJ spominjati ID brojeve, signature ili interne oznake (npr. 55000313).
+            
+            PODACI:
+            {context}
 
-        UPIT: "{message}"
-        """
-        response = await self.client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            response_format={ "type": "json_object" }
-        )
-        import json
-        return json.loads(response.choices[0].message.content)    
+            ODGOVOR:"""
+        else:
+            # Ima opis - samo formatiraj
+            prompt = f"""Preoblikuj ovaj opis u pregledne odlomke za chat (na hrvatskom), nemoj ništa izbaciti::
 
+            {original_desc}"""
+        
+        try:
+            response = await self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",
+                temperature=0.7,
+                max_tokens=300
+            )
+            return response.choices[0].message.content.strip()
+        
+        except Exception as e:
+            logger.error(f"AI description error: {e}")
+            return original_desc if has_desc else "Opis nije dostupan."
+        
 # Quick test
 if __name__ == "__main__":
     import asyncio
@@ -411,7 +490,7 @@ if __name__ == "__main__":
         chatbot = LibraryChatbot()
         
         test_queries = [
-            "Koje knjige ima Jo Nesbø?",
+            "Koje knjige ima Jo Nesbo?",
             "Što ima novo?",
             "Preporuči mi psihologiju"
         ]

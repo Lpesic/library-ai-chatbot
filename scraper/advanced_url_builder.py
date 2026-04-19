@@ -7,7 +7,7 @@ from typing import Dict, Any
 class AdvancedUrlBuilder:
     def __init__(self, api_key: str):
         self.client = Groq(api_key=api_key)
-        self.base_url = "https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?&searchById=40"
+        self.base_url = "https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?&searchById=1"
         
         # Učitavanje specifičnih JSON-ova
         self.languages = self._load_json('scraper/languages.json')
@@ -25,6 +25,7 @@ class AdvancedUrlBuilder:
 
         # Fiksni FID-ovi iz kataloga
         self.fid_map = {
+            "opca_pretraga": 1,
             "autor": 1, 
             "gradja": 2,
             "godina": 3,
@@ -102,7 +103,7 @@ class AdvancedUrlBuilder:
         ### STRIKTNA PRAVILA:
         - Ako korisnik ne spomene specifičan parametar, vrati `null` (ili praznu listu za lokaciju).
         - Ako korisnik traži "obje lokacije" ili "bilo gdje", koristi `["marinici", "viskovo"]`.
-        - Ako korisnik traži autora, stavi ga u 'pojam', a ne u 'sadrzaj'.
+        - Ako korisnik traži autora, stavi puno ime u 'pojam', a ne u 'sadrzaj'.
         - IZLAZ MORA BITI ISKLJUČIVO ČISTI JSON.
         
         ### JSON SHEMA:
@@ -129,7 +130,16 @@ class AdvancedUrlBuilder:
             temperature=0,
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
+        metadata = json.loads(response.choices[0].message.content)
+        # --- test print ---
+        print("\n" + "═"*50)
+        print("🤖 BOT JE SHVATIO:")
+        for k, v in metadata.items():
+            if v is not None and v != [] and v != False:
+                print(f"   ➤ {k.upper()}: {v}")
+        print("═"*50 + "\n")
+        # ---
+        return metadata
 
     def get_year_code(self, year: int) -> str:
         """Automatski generira Metel kod za godinu"""
@@ -148,7 +158,7 @@ class AdvancedUrlBuilder:
         # Slobodni pojam (Search PV)
         if metadata.get('pojam'):
             params.append(f"spv0={urllib.parse.quote(metadata['pojam'])}")
-            params.append(f"spid0=40")
+            params.append(f"spid0=1")
 
         top_val = metadata.get('top')
         requested_sort = metadata.get('sort')
