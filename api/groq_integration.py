@@ -82,6 +82,11 @@ class LibraryChatbot:
 
         3. **get_book_description** - Opis knjige (kad korisnik pita "o čemu se radi")
 
+        4. **get_library_events** - Događaji, radionice, novosti. PRIMJERI:
+        - "Što se događa u knjižnici?" → get_library_events(event_type="upcoming")
+        - "Koje su radionice bile?" → get_library_events(event_type="past")
+        - "Novosti u knjižnici" → get_library_events(event_type="all")
+
         ### PRAVILA ZA TOOL USE:
         - Kada pozivaš funkciji, koristi argumente SAMO u validnom JSON formatu
         - Nemoj dodavati nikakav tekst niti XML oznake poput '<function=' oko poziva alata
@@ -152,10 +157,34 @@ class LibraryChatbot:
                         }
                     },
                     "required": ["query"]
+                    }
+                }
+            },
+            # DOGAĐAJI
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_library_events",
+                    "description": "Dohvati informacije o događajima, radionicama i novostima u knjižnici. Koristi kad korisnik pita o događanjima, radionicama, pričaonicama, novostima ili aktivnostima.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "event_type": {
+                                "type": "string",
+                                "description": "Tip događaja",
+                                "enum": ["all", "upcoming", "past"],
+                                "default": "all"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Broj događaja",
+                                "default": 5
+                            }
+                        }
+                    }
                 }
             }
-        }
-    ]
+        ]
     
     async def chat(
         self, 
@@ -272,6 +301,7 @@ class LibraryChatbot:
         from scraper.book_detail_parser import BookDetailParser
         from scraper.advanced_url_builder import AdvancedUrlBuilder
         from scraper.universal_scraper import UniversalScraper
+        from scraper.events_scraper import EventsScraper
 
         try:
             # PRETRAGA KATALOGA
@@ -347,6 +377,48 @@ class LibraryChatbot:
                     "year": details.get('year'),
                     "url": details.get('url')
                 }
+            
+            elif function_name == "get_library_events":
+                limit = function_args.get("limit", 5)
+                
+                logger.info(f"📅 Dohvaćam događaje: limit={limit}")
+                
+                scraper = EventsScraper()
+                events = await scraper.get_events(limit=limit)
+                
+                if not events:
+                    return "Trenutno nema dostupnih informacija o događajima u knjižnici."
+                
+                # Formatiraj kao tekst
+                result_text = f"Pronađeno {len(events)} događaja:\n\n"
+                
+                for i, event in enumerate(events, 1):
+                    result_text += f"{i}. {event['title']}\n"
+                    
+                    if event.get('date_text'):
+                        result_text += f"   📆 {event['date_text']}\n"
+                    
+                    # Kratak opis
+                    desc = event.get('excerpt', '')
+                    if len(desc) > 150:
+                        desc = desc[:150] + "..."
+                    
+                    if desc:
+                        result_text += f"   {desc}\n"
+                    
+                    # Puni opis (ako postoji)
+                    if event.get('full_description'):
+                        full_desc = event['full_description']
+                        if len(full_desc) > 300:
+                            full_desc = full_desc[:300] + "..."
+                        result_text += f"   Detalji: {full_desc}\n"
+                    
+                    if event.get('url'):
+                        result_text += f"   🔗 Više: {event['url']}\n"
+                    
+                    result_text += "\n"
+                
+                return result_text.strip()
          
             else:
                 return {"error": f"Nepoznata funkcija: {function_name}"}
