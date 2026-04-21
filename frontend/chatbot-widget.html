@@ -244,7 +244,19 @@
         background: #f7f7f7;
         display: flex;
         gap: 8px;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+      }
+      .quick-questions::-webkit-scrollbar {
+        display: none;
+      }
+      .quick-questions {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
       }
 
       .quick-btn {
@@ -255,6 +267,9 @@
         font-size: 11px;
         cursor: pointer;
         transition: all 0.3s;
+        flex-shrink: 0;
+        display: inline-block;
+        white-space: nowrap;
       }
 
       .quick-btn:hover {
@@ -507,6 +522,13 @@
         >
           Knjige
         </button>
+
+        <button
+          class="quick-btn"
+          onclick="sendQuickQuestion('Koja su aktualna događanja u knjižnici?')"
+        >
+          Događanja
+        </button>
       </div>
 
       <div class="chat-input-area">
@@ -539,6 +561,7 @@
       let historyIndex = -1;
       let currentUserMessage = "";
       let lastBotMessageElement = null;
+      let hasLookedAtQuestions = false;
 
       function toggleChat() {
         isOpen = !isOpen;
@@ -548,8 +571,7 @@
           chatButton.classList.add("active");
           notificationBadge.classList.remove("active");
           chatInput.focus();
-
-          chatInput.focus();
+          setTimeout(animateQuickQuestions, 400);
         } else {
           chatWidget.classList.remove("active");
           chatButton.classList.remove("active");
@@ -763,12 +785,41 @@
           }
         }
       }
+
+      function animateQuickQuestions() {
+        if (hasLookedAtQuestions) return;
+
+        const container = document.querySelector(".quick-questions");
+        const scrollAmount = container.scrollWidth - container.clientWidth;
+
+        // 1. Scrollaj skroz udesno
+        container.scrollTo({
+          left: scrollAmount,
+          behavior: "smooth",
+        });
+
+        // 2. Nakon 800ms (kad stigne do kraja), vrati se nazad
+        setTimeout(() => {
+          container.scrollTo({
+            left: 0,
+            behavior: "smooth",
+          });
+          hasLookedAtQuestions = true;
+        }, 800);
+      }
       // Show welcome notification poslije 3 seconds
       setTimeout(() => {
         if (!isOpen) {
           notificationBadge.classList.add("active");
         }
       }, 3000);
+
+      const quickQuestions = document.querySelector(".quick-questions");
+
+      quickQuestions.addEventListener("wheel", (evt) => {
+        evt.preventDefault();
+        quickQuestions.scrollLeft += evt.deltaY;
+      });
     </script>
   </body>
 </html>

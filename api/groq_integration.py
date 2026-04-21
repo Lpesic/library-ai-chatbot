@@ -45,7 +45,6 @@ class LibraryChatbot:
         # Async Groq client
         self.client = AsyncGroq(api_key=api_key)
         
-        # Koristi Llama 3.3 70B - najbrži i najpametniji besplatni model
         self.model = "llama-3.3-70b-versatile"
         
         info = self.load_membership_info()
@@ -59,14 +58,14 @@ class LibraryChatbot:
         ### TVOJA ULOGA:
         - Pomažeš korisnicima s informacijama o knjižnici
         - Pretražuješ katalog knjiga
-        - Provjereš dostupnost knjiga
+        - Provjeravaš dostupnost knjiga
         - Preporučuješ knjige
+        - Daješ informacije o događajima
 
         ### PRAVILA:
         - UVIJEK odgovaraj na hrvatskom jeziku
         - Budi koncizan (2-4 rečenice)
         - Koristi dostupne funkcije za točne podatke - NE izmišljaj!
-        - NE KORISTI 'search_catalog' za pitanja o radnom vremenu, članarini, lokaciji ili kontaktima.
         - Ako korisnik odgovara s "da", "ne", "ok" - poveži to s prethodnim pitanjem 
 
         ### DOSTUPNE FUNKCIJE:
@@ -82,10 +81,7 @@ class LibraryChatbot:
 
         3. **get_book_description** - Opis knjige (kad korisnik pita "o čemu se radi")
 
-        4. **get_library_events** - Događaji, radionice, novosti. PRIMJERI:
-        - "Što se događa u knjižnici?" → get_library_events(event_type="upcoming")
-        - "Koje su radionice bile?" → get_library_events(event_type="past")
-        - "Novosti u knjižnici" → get_library_events(event_type="all")
+        4. **get_library_events** - Dohvaća aktualne događaje, radionice, susrete i novosti i slične evente s web stranice.
 
         ### PRAVILA ZA TOOL USE:
         - Kada pozivaš funkciji, koristi argumente SAMO u validnom JSON formatu
@@ -147,7 +143,7 @@ class LibraryChatbot:
             "type": "function",
             "function": {
                 "name": "search_catalog",
-                "description": "Koristi isključivo za SVE upite o knjigama: pretraga po temi, jeziku, vrsti građe, novitetima, najčitanijima ili preporukama.",
+                "description": "Pretražuje samo bazu fizičkih knjiga ili građe: pretraga po temi, jeziku, vrsti građe, novitetima, najčitanijima ili preporukama. Ovdje NEMA informacija o radionicama, vijestima ili događajima.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -169,12 +165,6 @@ class LibraryChatbot:
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "event_type": {
-                                "type": "string",
-                                "description": "Tip događaja",
-                                "enum": ["all", "upcoming", "past"],
-                                "default": "all"
-                            },
                             "limit": {
                                 "type": "integer",
                                 "description": "Broj događaja",
@@ -183,7 +173,7 @@ class LibraryChatbot:
                         }
                     }
                 }
-            }
+            },
         ]
     
     async def chat(
@@ -379,6 +369,9 @@ class LibraryChatbot:
                 }
             
             elif function_name == "get_library_events":
+                if function_args is None:
+                    function_args = {}
+
                 limit = function_args.get("limit", 5)
                 
                 logger.info(f"📅 Dohvaćam događaje: limit={limit}")
@@ -404,14 +397,7 @@ class LibraryChatbot:
                         desc = desc[:150] + "..."
                     
                     if desc:
-                        result_text += f"   {desc}\n"
-                    
-                    # Puni opis (ako postoji)
-                    if event.get('full_description'):
-                        full_desc = event['full_description']
-                        if len(full_desc) > 300:
-                            full_desc = full_desc[:300] + "..."
-                        result_text += f"   Detalji: {full_desc}\n"
+                        result_text += f"   {desc}\n"                  
                     
                     if event.get('url'):
                         result_text += f"   🔗 Više: {event['url']}\n"
@@ -419,7 +405,14 @@ class LibraryChatbot:
                     result_text += "\n"
                 
                 return result_text.strip()
-         
+            
+            elif function_name == "get_event_details":
+                url = function_args.get("url")
+                logger.info(f"AI traži dubinsko čitanje za URL: {url}")
+                scraper = EventsScraper()
+                details = await scraper._fetch_event_details(url)
+                return details
+
             else:
                 return {"error": f"Nepoznata funkcija: {function_name}"}
         

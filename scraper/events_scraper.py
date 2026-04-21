@@ -25,7 +25,7 @@ class EventsScraper:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 events = []
                 
-                # Selektiramo sve elemente koji imaju data-post-id (to su tvoji članci iz HTML-a)
+                # Selektiramo sve elemente koji imaju data-post-id (članci iz HTML-a)
                 articles = soup.select('div[data-post-id]')
                 
                 logger.info(f"Pronađeno potencijalnih artikala: {len(articles)}")
@@ -50,14 +50,14 @@ class EventsScraper:
                         'title': title,
                         'url': link,
                         'date_text': date_text,
-                        'excerpt': excerpt
+                        'excerpt': excerpt,
                     })
 
                 return events
 
         except Exception as e:
-            logger.error(f"❌ Scraper Error: {e}")
-            return []
+            logger.error(f"Pogreška scrapera: {e}")
+            return []        
 
 # --- TEST SKRIPTA ---
 if __name__ == "__main__":
