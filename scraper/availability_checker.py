@@ -57,7 +57,9 @@ class ScraperAPIChecker:
                 'api_key': self.scraper_api_key,
                 'url': main_url,
                 'render': 'true', 
-                'country_code': 'hr'  # Koristi HR proxy
+                'country_code': 'hr',
+                'block_resources': 'image,stylesheet,font',
+                'wait_for_selector': '#divLokacijeTab'  # Koristi HR proxy
             }
             logger.info(f"Dohvaćam stranicu preko ScraperAPI (render=true)...")
 

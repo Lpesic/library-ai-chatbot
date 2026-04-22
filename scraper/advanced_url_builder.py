@@ -95,8 +95,8 @@ class AdvancedUrlBuilder:
         7. **Sortiranje (sort):**
             - "po autoru", "abecedno pisci", "poredaj autore" -> `sort` na 1.
             - "po naslovu", "abecedno knjige", "poredaj po imenu" -> `sort` na 2.
-            - Ako korisnik kaže "knjige iz 2024" ili "novo izdanje" -> postavi `godina` na 2024/2026, a `sort` ostavi null.
-            - Ako korisnik kaže "pokaži najnovije", "što je tek stiglo", "sortiraj po novom" -> `sort` na 3, a `godina` ostavi null.
+            - Ako se traži "knjige iz 2024" ili "novo izdanje" -> postavi `godina` na 2024/2026, a `sort` ostavi null.
+            - Ako se traži "pokaži najnovije", "što je tek stiglo", "sortiraj po novom" -> `sort` na 3, a `godina` ostavi null.
             - Ako kaže samo "novo", prioritet je `sort: 3` jer korisnici obično žele vidjeti zadnje obrađene knjige, a ne nužno samo one izdane ove godine.
             - Ako je u kombinaciji s `top` (najčitanije), zanemari ovo i koristi logiku za popularnost.
 
