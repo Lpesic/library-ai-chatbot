@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from scraper.availability_checker import ScraperAPIChecker
-    from database.db_manager import DatabaseManager
     from chatbot.knowledge_base import KnowledgeBase
     from scraper.book_detail_parser import BookDetailParser
 except ImportError as e:
@@ -61,7 +60,6 @@ GROQ_ENABLED = bool(groq_key)
 
 availability_checker = ScraperAPIChecker()
 book_detail_parser = BookDetailParser()
-db = DatabaseManager()
 kb = KnowledgeBase()
 
 if GROQ_ENABLED:
@@ -202,40 +200,9 @@ async def api_root():
         "version": "1.0.0",
         "endpoints": {
             "chat": "/api/chat",
-            "books": "/api/books/search",
-            "book_details": "/api/books/{book_id}",
-            "health": "/api/health",
             "docs": "/docs"
         }
     }
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "database": "connected",
-        "knowledge_base_docs": kb.get_count()
-    }
-
-@app.get("/api/books/{book_id}/availability")
-async def check_book_availability(book_id: str):
-    """
-    Provjeri dostupnost knjige u stvarnom vremenu koristeći asinkroni scraper.
-    """
-    try:
-        availability = await availability_checker.check_availability(book_id)
-        logger.info(f"Availability result for {book_id}: {availability}")
-        message = availability_checker.format_availability_message(availability)    
-        # Vraćamo JSON objekt, a ne samo običan string, 
-        # kako bi frontend (data.response) to znao pročitati
-        return {"response": message}
-    except Exception as e:
-        logger.error(f"AVAILABILITY ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        # I u slučaju greške vraćamo JSON format da chatbot ne "pukne"
-        return {"response": f"Trenutno ne mogu provjeriti dostupnost: {str(e)}"}
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_ai(request: ChatRequest):
@@ -258,78 +225,7 @@ async def chat_ai(request: ChatRequest):
         logger.error(f"AI chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/books/search")
-async def search_books(request: BookSearchRequest):
-    """
-    Pretraži knjige u katalogu
-    """
-    try:
-        books = db.search_books(request.query, limit=request.limit)
-        
-        return {
-            "query": request.query,
-            "count": len(books),
-            "books": books
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/books/{book_id}")
-async def get_book(book_id: str):
-    """
-    Dohvati detaljne informacije o knjizi
-    """
-    try:
-        book = db.get_book_by_id(book_id)
-        
-        if not book:
-            raise HTTPException(status_code=404, detail="Knjiga nije pronađena")
-        
-        return book
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 # --- STARTUP / SHUTDOWN
-
-@app.on_event("startup")
-async def startup_event():
-    """Pokreće se kad se API pokrene"""
-    print("=" * 70)
-    print("🚀 Library Chatbot API pokrenut!")
-    try:
-        # Provjeri je li baza prazna
-        all_books = db.get_all_books(limit=1)
-    except Exception as e:
-        print(f"Problem s bazom: {e}")
-    
-    if not all_books or len(all_books) == 0:
-        print("Baza je prazna - učitavam knjige iz JSON-a...")
-        
-        # Učitaj iz JSON-a
-        import glob
-        json_files = glob.glob("data/books_catalog*.json")
-        
-        if json_files:
-            count = db.import_from_json(json_files[0])
-            print(f"Učitano {count} knjiga u bazu")
-        else:
-            print("Nema JSON fajlova za import!")
-    else:
-        print(f"Baza već sadrži knjige: {len(all_books)}")
-    
-    print(f"Knowledge base: {kb.get_count()} dokumenata")
-    print(f"Baza podataka: spremna")
-    print("=" * 70)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Pokreće se kad se API ugasi"""
-    db.close()
-    print("API ugašen")
 
 import asyncio
 from api.main import search_catalog_for_book

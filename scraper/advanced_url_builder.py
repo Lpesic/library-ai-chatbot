@@ -10,8 +10,8 @@ class AdvancedUrlBuilder:
         self.base_url = "https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?&searchById=1"
         
         # Učitavanje specifičnih JSON-ova
-        self.languages = self._load_json('scraper/languages.json')
-        self.categories = self._load_json('scraper/udk_categories.json')
+        self.languages = self._load_json('data/languages.json')
+        self.categories = self._load_json('data/udk_categories.json')
         self.media_types = self._load_json('data/media_types.json')
         self.ages = self._load_json('data/ages.json')
         self.locations = {

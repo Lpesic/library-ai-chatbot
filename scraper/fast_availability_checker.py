@@ -68,7 +68,7 @@ class FastAvailabilityChecker:
                 all_books = []
                 for r in soup_all.select('.divBibZapis'):
                     t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
-                    # Zadržavamo samo one koji su stvarno match (izbacujemo Westaway i slično)
+                    # Zadržavamo samo one koji su stvarno match
                     if all(word in re.sub(r'[^\w\s]', ' ', t.lower()).split() for word in search_query.split()):
                         all_books.append(t)
 

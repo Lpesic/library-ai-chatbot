@@ -7,8 +7,6 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.db_manager import DatabaseManager
-from chatbot.faq_data import search_faq
 from chatbot.knowledge_base import KnowledgeBase
 import re
 
@@ -17,7 +15,6 @@ class LibraryChatbot:
     """AI Chatbot za knjižnicu sa RAG sistemom"""
     
     def __init__(self):
-        self.db = DatabaseManager()
         self.kb = KnowledgeBase()
         
         # Učitaj knowledge base ako je prazan
@@ -92,9 +89,9 @@ class LibraryChatbot:
         """Rukuje pitanjima o knjižnici koristeći RAG"""
         
         # Prvo pokušaj s FAQ-om
-        faq_results = search_faq(query)
-        if faq_results and faq_results[0]['score'] >= 2:
-            return self._format_faq_response(faq_results[0])
+        #faq_results = search_faq(query)
+        #if faq_results and faq_results[0]['score'] >= 2:
+        #    return self._format_faq_response(faq_results[0])
         
         # Zatim knowledge base
         kb_results = self.kb.search(query, n_results=2)

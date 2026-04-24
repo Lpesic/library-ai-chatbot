@@ -56,37 +56,14 @@ class LibraryChatbot:
         {info}
 
         ### TVOJA ULOGA:
-        - Pomažeš korisnicima s informacijama o knjižnici
-        - Pretražuješ katalog knjiga
-        - Provjeravaš dostupnost knjiga
-        - Preporučuješ knjige
-        - Daješ informacije o događajima
+        - Pomažeš korisnicima s informacijama o knjižnici, katalogu i događajima.
+        - Koristiš dostupne alate za točne podatke.
+        - Odgovaraš na hrvatskom jeziku, ljubazno i koncizno (2-4 rečenice).
 
         ### PRAVILA:
-        - UVIJEK odgovaraj na hrvatskom jeziku
-        - Budi koncizan (2-4 rečenice)
-        - Koristi dostupne funkcije za točne podatke - NE izmišljaj!
-        - Ako korisnik odgovara s "da", "ne", "ok" - poveži to s prethodnim pitanjem 
-
-        ### DOSTUPNE FUNKCIJE:
-        1. **search_catalog** - Pretraživanje kataloga po BILO KOJIM kriterijima:
-        - Teme (psihologija, sport, medicina...)
-        - Jezici (engleski, latinski, slovenski...)
-        - Vrste građe (film, CD, igračka, e-knjiga...)
-        - Noviteti (nove knjige)
-        - Najpopularnije (top knjige)
-        - Kombinacije (npr. "filmovi o medicini na slovenskom")
-
-        2. **check_availability** - Provjera dostupnosti pojedine knjige
-
-        3. **get_book_description** - Opis knjige (kad korisnik pita "o čemu se radi")
-
-        4. **get_library_events** - Dohvaća aktualne događaje, radionice, susrete i novosti i slične evente s web stranice.
-
-        ### PRAVILA ZA TOOL USE:
-        - Kada pozivaš funkciji, koristi argumente SAMO u validnom JSON formatu
-        - Nemoj dodavati nikakav tekst niti XML oznake poput '<function=' oko poziva alata
-        - Ako koristiš 'search_catalog', upit treba biti običan string
+        - PAMTI KONTEKST: Ako korisnik kaže "da" ili "može", odnosi se na tvoj prethodni prijedlog.
+        - DOSLJEDNOST: Koristi informacije koje ti vrate funkcije kao jedini izvor istine.
+        - BEZ NAGAĐANJA: Ako funkcija ne vrati podatak (npr. o dostupnosti), nemoj ga izmišljati.
         """
         
         # Function definitions (Groq podržava tool use!)
@@ -101,13 +78,13 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "check_availability",
-                    "description": "Provjeri je li knjiga dostupna za posudbu i na kojim lokacijama.Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
+                    "description": "Provjeri je li knjiga dostupna za posudbu i na kojim lokacijama. Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "book_title": {
                                 "type": "string",
-                                "description": "Točan naslov knjige iz kataloga"
+                                "description": "Naslov knjige za koju korisnik želi provjeriti dostupnost"
                             }
                         },
                         "required": ["book_title"]
@@ -125,7 +102,7 @@ class LibraryChatbot:
                         "properties": {
                             "book_title": {
                                 "type": "string",
-                                "description": "Naslov knjige"
+                                "description": "Naslov knjige za koju korisnik želi opis"
                             },
                             "mode": {
                                 "type": "string",
@@ -143,7 +120,7 @@ class LibraryChatbot:
             "type": "function",
             "function": {
                 "name": "search_catalog",
-                "description": "Pretražuje samo bazu fizičkih knjiga ili građe: pretraga po temi, jeziku, vrsti građe, novitetima, najčitanijima ili preporukama. Ovdje NEMA informacija o radionicama, vijestima ili događajima.",
+                "description": "Pretražuje samo bazu fizičkih knjiga ili građe: pretraga po naslovu, temi, autoru, jeziku, vrsti građe, godini, novitetima, najčitanijima ili preporukama. Ovdje NEMA informacija o radionicama, vijestima ili događajima.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -192,18 +169,30 @@ class LibraryChatbot:
             # Pripremi poruke
             messages = [
                 {"role": "system", "content": self.system_prompt},
-                {"role": "system", "content": "Tool calls must be valid JSON. No markdown, no tags."},
-                {"role": "user", "content": user_message}
             ]
+
+            logger.info(f"📨 Šaljem Groq-u {len(messages)} poruka:")
+            for i, msg in enumerate(messages):
+                role = msg.get("role", "?")
+                content = str(msg.get("content", ""))[:100]
+                has_tools = "tool_calls" in msg
+                
+                logger.info(f"  [{i}] {role}: {content}... (has_tool_calls: {has_tools})")    
 
             if conversation_history:
                 filtered_history = [
                     msg for msg in conversation_history
-                    if msg.get("role") in ["user", "asistant"]
+                    if msg.get("role") in ["user", "assistant"]
+                    and "tool_calls" not in msg
+                    and msg.get("content")
                 ]
                 messages.extend(filtered_history[-8:])
                 logger.info(f"Dodao {len(filtered_history[-8:])} poruka iz povijesti")
 
+            messages.append({
+                "role": "system",
+                "content": "Use ONLY JSON format for tool calls. Example: {\"name\": \"search_catalog\", \"arguments\": {\"query\": \"text\"}}"
+            })
             messages.append({"role": "user", "content": user_message})    
             # Pozovi Groq sa tool use
             response = await self.client.chat.completions.create(
@@ -211,7 +200,7 @@ class LibraryChatbot:
                 messages=messages,
                 tools=self.tools, 
                 tool_choice="auto",  # AI odlučuje kad koristiti funkcije
-                temperature=0.3,
+                temperature=0.1,
                 max_tokens=1000
             )
             
@@ -262,7 +251,11 @@ class LibraryChatbot:
                     continue
             
             function_response = await self._execute_function(function_name, function_args)
-            
+            response_str = str(function_response)
+            logger.info(f"Funkcija vratila: {response_str[:200]}...")
+
+            uputa = function_response.pop("uputa", None) if isinstance(function_response, dict) else None
+
             # Dodaj rezultat u povijest
             messages.append({
                 "role": "tool",
@@ -270,6 +263,12 @@ class LibraryChatbot:
                 "name": function_name,
                 "content": json.dumps(function_response, ensure_ascii=False)
             })
+
+            if uputa:
+                current_content = json.loads(messages[-1]["content"])
+                if isinstance(current_content, dict):
+                    current_content["_internal_note"] = uputa
+                    messages[-1]["content"] = json.dumps(current_content, ensure_ascii=False)
         
         # Pozovi Groq ponovno sa rezultatima
         try:
@@ -287,56 +286,66 @@ class LibraryChatbot:
     async def _execute_function(self, function_name: str, function_args: Dict):
         """Izvršava pozvanu funkciju"""
                    
-        from scraper.availability_checker import ScraperAPIChecker
-        from scraper.book_detail_parser import BookDetailParser
-        from scraper.advanced_url_builder import AdvancedUrlBuilder
-        from scraper.universal_scraper import UniversalScraper
-        from scraper.events_scraper import EventsScraper
-
         try:
             # PRETRAGA KATALOGA
             if function_name == "search_catalog":
-                query = function_args.get("query")
+                query = function_args.get("query") or function_args.get("book_title")
                 
                 logger.info(f"RELEJ: Prosljeđujem '{query}' u AdvancedUrlBuilder")
 
+                from scraper.advanced_url_builder import AdvancedUrlBuilder
                 url_builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
                 metadata = url_builder.analyze_query(query)
                 target_url = url_builder.build_url(metadata)
 
                 logger.info(f"URL: {target_url}")
 
+                is_new_or_top = metadata.get('sort') == 3 or metadata.get('top') is not None
+                should_randomize = not is_new_or_top
+
+                from scraper.universal_scraper import UniversalScraper
                 scraper = UniversalScraper()
                 items = await scraper.fetch_and_parse(
                     target_url,
                     limit=8,
-                    random_selection=True
+                    random_selection=should_randomize
                 )
 
                 return {
                 "items": items, 
                 "count": len(items),
-                "query": query
+                "query": query,
+                "uputa": (
+                    "Ovo su rezultati pretrage iz kataloga. "
+                    "Prikaži ih kao preglednu listu (Naslov - Autor). "
+                    "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
+                    "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
+                    "Navedi što je pronađeno, a možeš i ponuditi korisniku da provjeriš dostupnost za konkretne rezultate ili ponuditi dati opis."
+                )
             }
 
             # DOSTUPNOST
             elif function_name == "check_availability":
-                book_title = function_args.get("book_title") or function_args.get("book_id")
+                book_title = function_args.get("book_title") or function_args.get("query") or function_args.get("search_query")
 
-                if book_title == 'None':
-                    book_title = None
+                if not book_title or book_title == 'None':
+                    return {"error": "Niste naveli naslov knjige za provjeru."}
 
-                logger.info(f"Provjera dostupnosti za: '{book_title}'")
+                logger.info(f"Pokrećem FastAvailabilityChecker za: '{book_title}'")
                 
-                book_id = await self._find_book_id(book_title)
+                from scraper.fast_availability_checker import FastAvailabilityChecker
+                checker = FastAvailabilityChecker()
 
-                if not book_id:
-                    return {"error": f"Nisam pronašao knjigu '{book_title}'"}
+                availability_data = await checker.check_availability(book_title)
 
-                checker = ScraperAPIChecker()
-                availability = await checker.check_availability(book_id)
-
-                return availability
+                return {
+                    "podaci": availability_data,
+                    "uputa": (
+                        "Ovo su podaci o dostupnosti u stvarnom vremenu. "
+                        "Koristi ✅ za dostupno i ❌ za posuđeno. Obavezno navedi lokacije dostupnosti (Marinići ili Viškovo)."
+                        "Ako postoje slični naslovi koji su dostupni, predloži ih kao alternativu"
+                    )
+                }
             
             # OPIS KNJIGE
             elif function_name == "get_book_description":
@@ -351,6 +360,7 @@ class LibraryChatbot:
                     return {"error": f"Nisam pronašao knjigu '{book_title}'"}
                 
                 # Dohvati detalje
+                from scraper.book_detail_parser import BookDetailParser
                 parser = BookDetailParser()
                 details = parser.parse_book_detail(book_id)
                 
@@ -376,11 +386,15 @@ class LibraryChatbot:
                 
                 logger.info(f"📅 Dohvaćam događaje: limit={limit}")
                 
+                from scraper.events_scraper import EventsScraper
                 scraper = EventsScraper()
                 events = await scraper.get_events(limit=limit)
                 
                 if not events:
-                    return "Trenutno nema dostupnih informacija o događajima u knjižnici."
+                    return {
+                        "data": "Trenutno nema dostupnih informacija o događajima u knjižnici.",
+                        "uputa": "Obavijesti korisnika da trenutno nema planiranih događanja, ali neka prati web stranicu za novosti."
+                    }
                 
                 # Formatiraj kao tekst
                 result_text = f"Pronađeno {len(events)} događaja:\n\n"
@@ -404,15 +418,16 @@ class LibraryChatbot:
                     
                     result_text += "\n"
                 
-                return result_text.strip()
+                return {
+                    "data": result_text.strip(),
+                    "uputa": (
+                        "Predstavi ove događaje korisniku na ljubazan način. "
+                        "Ako ih ima više, spomeni samo najvažnije detalje. "
+                        "Ako korisnik traži specifičan događaj ili detalje, opiši ga."
+                        "Obavezno zadrži linkove i datume onako kako su navedeni."
+                    )
+                }
             
-            elif function_name == "get_event_details":
-                url = function_args.get("url")
-                logger.info(f"AI traži dubinsko čitanje za URL: {url}")
-                scraper = EventsScraper()
-                details = await scraper._fetch_event_details(url)
-                return details
-
             else:
                 return {"error": f"Nepoznata funkcija: {function_name}"}
         
@@ -428,29 +443,8 @@ class LibraryChatbot:
         if not book_title or book_title == 'None':
             logger.warning("Pokušaj pretrage ID-a s praznim naslovom (None).")
             return None
-
-        # 1. Pretraži bazu
-        try:
-            conn = sqlite3.connect('data/library.db')
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT id FROM books 
-                WHERE title LIKE ? 
-                LIMIT 1
-            """, (f'%{book_title}%',))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
-            if row:
-                return row['id']
         
-        except Exception as e:
-            logger.error(f"DB search error: {e}")
-        
-        # 2. Pretraži katalog
+        # Pretraži katalog
         try:
             scraper_api_key = os.getenv('SCRAPER_API_KEY')
             if not scraper_api_key:
