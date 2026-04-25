@@ -151,6 +151,29 @@ class LibraryChatbot:
                     }
                 }
             },
+            # SLIČNE KNJIGE
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_similar_books",
+                    "description": "Pronađi slične knjige na temelju preporuka ili tagova. Koristi kad korisnik traži preporuke, slične knjige, ili 'nešto kao X'.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "book_title": {
+                                "type": "string",
+                                "description": "Naslov knjige za koju tražimo slične"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Broj preporuka. VAŽNO: Pošalji isključivo kao cijeli broj (npr. 3, a ne '3').",
+                                "default": 3
+                            }
+                        },
+                        "required": ["book_title"]
+                    }
+                }
+            },
         ]
     
     async def chat(
@@ -378,6 +401,7 @@ class LibraryChatbot:
                     "url": details.get('url')
                 }
             
+            # DOGAĐAJI
             elif function_name == "get_library_events":
                 if function_args is None:
                     function_args = {}
@@ -428,6 +452,75 @@ class LibraryChatbot:
                     )
                 }
             
+            # SLIČNE KNJIGE
+            elif function_name == "get_similar_books":
+                import re
+                from scraper.book_detail_parser import BookDetailParser
+                
+                book_title = function_args.get("book_title")
+                limit_arg = function_args.get("limit", 3)
+
+                # 1. Sigurno pretvori limit u integer
+                try:
+                    limit = int(limit_arg)
+                except (ValueError, TypeError):
+                    limit = 3
+                
+                logger.info(f"🔍 Tražim preporuke za: '{book_title}'")
+                
+                # 2. Pronađi ID knjige
+                raw_id = await self._find_book_id(book_title)
+                
+                if not raw_id:
+                    return {"error": f"Nisam pronašao knjigu '{book_title}'"}
+                
+                # 3. FIX: Čišćenje ID-a i korištenje clean_id varijable
+                match = re.search(r'(\d+)', str(raw_id))
+                if match:
+                    clean_id = match.group(1)
+                else:
+                    return {"error": "Neispravan format ID-a knjige."}
+                
+                # 4. Dohvati detalje (proslijedi OČIŠĆENI clean_id)
+                parser = BookDetailParser()
+                details = parser.parse_book_detail(clean_id)
+                
+                recommendations = details.get('recommendations', {})
+                all_recs = []
+
+                # 5. LOGIKA: Spajamo 'Prema posudbi' i 'Od istoga autora'
+                for section in recommendations:
+                    if isinstance(recommendations[section], list):
+                        all_recs.extend(recommendations[section])
+
+                # 6. FALLBACK: Ako su preporuke prazne, koristi TAGOVE
+                source = "katalog_recommendations"
+                used_tag = None
+
+                if not all_recs:
+                    logger.info(f"Preporuke prazne za '{book_title}', provjeravam tagove...")
+                    tags = details.get('tags', [])
+                    
+                    if tags:
+                        used_tag = tags[0] 
+                        logger.info(f"Pokrećem pretragu za tag: {used_tag}")
+                        
+                        tag_results = await self._search_by_tag(used_tag)
+                        
+                        # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
+                        all_recs = [b for b in tag_results if str(b.get('id')) != clean_id]
+                        source = "tag_search"
+                    else:
+                        return {"message": f"Za knjigu '{book_title}' trenutno nema preporuka ni tagova."}
+
+                # 7. Formatiraj odgovor za AI
+                return {
+                    "original_book": details.get('title', book_title),
+                    "recommendations": all_recs[:limit],
+                    "source": source,
+                    "used_tag": used_tag
+                }
+
             else:
                 return {"error": f"Nepoznata funkcija: {function_name}"}
         

@@ -47,9 +47,11 @@ class BookDetailParser:
                 'material_type': self._extract_material_type(soup),
                 'notes': self._extract_notes(soup),
                 'description': self._extract_description(soup),
+                'recommendations': self._extract_recommendations(soup),
             }
             
             logger.info(f"Uspješno parsirano: {book_data['title']}")
+            book_data['recommendations'] = self._extract_recommendations(book_id)
             return book_data
             
         except Exception as e:
@@ -268,13 +270,69 @@ class BookDetailParser:
                     return value_div.get_text(strip=True)
                     
         return "Opis nije dostupan."
+    
+    def _extract_recommendations(self, book_id: str) -> Dict[str, List[Dict]]:
+        """Izvlači preporuke putem Ajax endpointa"""
+        recommendations = {}
+        
+        # URL koji si pronašao (maknuo sam random i timestamp jer obično nisu nužni)
+        ajax_url = f"{self.base_url}/include/globalAjax.aspx?action=getPreporukeList"
+        
+        try:
+            # Jako bitno: Referer mora biti stranica knjige jer server tako zna za koji ID šalje preporuke
+            clean_id = str(book_id).strip()
+
+            ajax_headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) ...',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': '*/*',
+                'Referer': f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={clean_id}"
+            }
+            
+            response = self.session.get(ajax_url, headers=ajax_headers, timeout=10)
+            response.raise_for_status()
+
+            if "application/json" in response.headers.get("Content-Type", ""):
+                return response.json()
+            
+            if response.status_code == 200 and response.text.strip():
+                # Ajax vraća komad HTML-a s carouselima
+                ajax_soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Sada koristimo istu logiku od prije
+                headers = ajax_soup.find_all('div', class_='vpHeader')
+                for header in headers:
+                    name = header.get_text(strip=True)
+                    recommendations[name] = []
+                    
+                    # Nađi prvi prSlicker nakon headera
+                    carousel = header.find_parent('div').find_next_sibling('div', class_='prSlicker')
+                    if not carousel: # Fallback ako je struktura malo drugačija
+                        carousel = header.find_parent().find_next('div', class_='prSlicker')
+
+                    if carousel:
+                        links = carousel.find_all('a', class_='vpLink')
+                        for link in links:
+                            href = link.get('href', '')
+                            id_match = re.search(r'selectedId=(\d+)', href)
+                            
+                            recommendations[name].append({
+                                'id': id_match.group(1) if id_match else "N/A",
+                                'title': link.get('title', link.get_text(strip=True)),
+                                'url': f"{self.base_url}/pagesResults/{href}"
+                            })
+                            
+        except Exception as e:
+            return {}
+            
+        return recommendations
 
 # Test
 if __name__ == "__main__":
     parser = BookDetailParser()
     
     # Test sa prvom knjigom
-    book_id = "164001707"
+    book_id = "8000531"
     print(f"Parsiram knjigu ID: {book_id}\n")
     
     book_data = parser.parse_book_detail(book_id)
