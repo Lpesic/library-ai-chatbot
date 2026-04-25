@@ -156,7 +156,7 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "get_similar_books",
-                    "description": "Pronađi slične knjige na temelju preporuka ili tagova. Koristi kad korisnik traži preporuke, slične knjige, ili 'nešto kao X'.",
+                    "description": "Koristi SAMO kad korisnik traži slične knjige, ili 'nešto kao X'.",
                     "parameters": {
                         "type": "object",
                         "properties": {
