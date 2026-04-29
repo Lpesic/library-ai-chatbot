@@ -64,6 +64,7 @@ class LibraryChatbot:
         - PAMTI KONTEKST: Ako korisnik kaže "da" ili "može", odnosi se na tvoj prethodni prijedlog.
         - DOSLJEDNOST: Koristi informacije koje ti vrate funkcije kao jedini izvor istine.
         - BEZ NAGAĐANJA: Ako funkcija ne vrati podatak (npr. o dostupnosti), nemoj ga izmišljati.
+        - LIMIT REZULTATA: Max 10 rezultata po upitu, ako korisnik traži nemoguć broj rezultata, prilagodi ga i objasni zašto
         """
         
         # Function definitions (Groq podržava tool use!)
@@ -78,7 +79,7 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "check_availability",
-                    "description": "Provjeri je li knjiga dostupna za posudbu i na kojim lokacijama. Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
+                    "description": "Provjeri dostupnost SAMO JEDNE knjige za posudbu i na kojim lokacijama. Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -126,7 +127,10 @@ class LibraryChatbot:
                     "properties": {
                         "query": {
                             "type": "string", 
-                            "description": "Originalni upit korisnika (npr. 'nove knjige na engleskom' ili 'psihologija')"
+                            "description": "Originalni upit korisnika (npr. 'nove knjige na engleskom' ili 'psihologija')",
+                            "default": 5,
+                            "minimum": 1,
+                            "maximum": 10
                         }
                     },
                     "required": ["query"]
@@ -145,7 +149,9 @@ class LibraryChatbot:
                             "limit": {
                                 "type": "integer",
                                 "description": "Broj događaja",
-                                "default": 5
+                                "default": 5,
+                                "minimum": 1,
+                                "maximum": 10
                             }
                         }
                     }
@@ -167,7 +173,9 @@ class LibraryChatbot:
                             "limit": {
                                 "type": "integer",
                                 "description": "Broj preporuka. VAŽNO: Pošalji isključivo kao cijeli broj (npr. 3, a ne '3').",
-                                "default": 3
+                                "default": 3,
+                                "minimum": 1,
+                                "maximum": 10
                             }
                         },
                         "required": ["book_title"]
@@ -231,6 +239,11 @@ class LibraryChatbot:
             
             # Provjeri ima li function calls
             if response_message.tool_calls:
+                if len(response_message.tool_calls) > 1:
+                    logger.warning(f"Bot je htio izvršiti {len(response_message.tool_calls)} funkcija. Režem na 1.")
+                    response_message.tool_calls = response_message.tool_calls[:1]
+                # -----------------------
+                
                 logger.info(f"Groq poziva {len(response_message.tool_calls)} funkcija")
                 return await self._handle_function_calls(response_message, messages)
             
@@ -259,19 +272,20 @@ class LibraryChatbot:
             function_name = tool_call.function.name
             raw_args = tool_call.function.arguments
 
-            try:
-                # Prvo pokušaj normalno
-                function_args = json.loads(raw_args)
-            except json.JSONDecodeError:
-                logger.warning(f"Groq poslao loš format: {raw_args}. Pokušavam popraviti...")
-                match = re.search(r'(\{.*\})', raw_args, re.DOTALL)
-                if match:
-                    try:
-                        function_args = json.loads(match.group(1))
-                    except:
-                        continue
-                else:
-                    continue
+            if str(raw_args).strip().startswith('<') and str(raw_args).strip().endswith('>'):
+                logger.warning(f"Detektiran XML format, čistim: {raw_args}")
+                function_args = self.extract_clean_json(raw_args) # Poziva tvoju funkciju
+            else:
+                try:
+                    # Prvo pokušaj normalno
+                    function_args = json.loads(raw_args)
+                except json.JSONDecodeError:
+                    logger.warning(f"JSONDecodeError na: {raw_args}. Pokušavam extract...")
+                    function_args = self.extract_clean_json(raw_args)
+            
+            if function_args is None:
+                logger.error(f"Kritična greška: Neuspješno dekodiranje argumenata za {function_name}")
+                continue
             
             function_response = await self._execute_function(function_name, function_args)
             response_str = str(function_response)
@@ -314,7 +328,7 @@ class LibraryChatbot:
             if function_name == "search_catalog":
                 query = function_args.get("query") or function_args.get("book_title")
                 
-                logger.info(f"RELEJ: Prosljeđujem '{query}' u AdvancedUrlBuilder")
+                logger.info(f"Prosljeđujem '{query}' u AdvancedUrlBuilder")
 
                 from scraper.advanced_url_builder import AdvancedUrlBuilder
                 url_builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
@@ -328,16 +342,25 @@ class LibraryChatbot:
 
                 from scraper.universal_scraper import UniversalScraper
                 scraper = UniversalScraper()
+
+                requested_limit = function_args.get("limit", 8)
+                safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
+
                 items = await scraper.fetch_and_parse(
                     target_url,
-                    limit=8,
+                    limit=safe_limit,
                     random_selection=should_randomize
                 )
+
+                note = ""
+                if isinstance(requested_limit, int) and requested_limit > 10:
+                    note = f"\n\n💡 Napomena: Tražili ste {requested_limit} knjiga, ali prikazujem najboljih {safe_limit}."
 
                 return {
                 "items": items, 
                 "count": len(items),
                 "query": query,
+                "note": note,
                 "uputa": (
                     "Ovo su rezultati pretrage iz kataloga. "
                     "Prikaži ih kao preglednu listu (Naslov - Autor). "
@@ -406,7 +429,8 @@ class LibraryChatbot:
                 if function_args is None:
                     function_args = {}
 
-                limit = function_args.get("limit", 5)
+                requested_limit = function_args.get("limit", 5)
+                limit = self._validate_limit(requested_limit, default=5, max_limit=10)
                 
                 logger.info(f"📅 Dohvaćam događaje: limit={limit}")
                 
@@ -458,15 +482,11 @@ class LibraryChatbot:
                 from scraper.book_detail_parser import BookDetailParser
                 
                 book_title = function_args.get("book_title")
-                limit_arg = function_args.get("limit", 3)
 
-                # 1. Sigurno pretvori limit u integer
-                try:
-                    limit = int(limit_arg)
-                except (ValueError, TypeError):
-                    limit = 3
+                requested_limit = function_args.get("limit", 5)
+                limit = self._validate_limit(requested_limit, default=5, max_limit=10)
                 
-                logger.info(f"🔍 Tražim preporuke za: '{book_title}'")
+                logger.info(f"Tražim preporuke za: '{book_title}'")
                 
                 # 2. Pronađi ID knjige
                 raw_id = await self._find_book_id(book_title)
@@ -629,6 +649,45 @@ class LibraryChatbot:
         except Exception as e:
             logger.error(f"AI description error: {e}")
             return original_desc if has_desc else "Opis nije dostupan."
+        
+    def _validate_limit(self, limit_arg, default: int = 5, max_limit: int = 10) -> int:
+        """
+        Validira limit parametar i vraća siguran broj
+        
+        Args:
+            limit_arg: Vrijednost iz function_args
+            default: Default vrijednost ako je invalid
+            max_limit: Maksimalan dozvoljen limit
+        
+        Returns:
+            Validirani limit (min 1, max max_limit)
+        """
+        try:
+            limit = int(limit_arg)
+            
+            # Min 1, max max_limit
+            if limit < 1:
+                logger.warning(f"Limit {limit} < 1, koristim 1")
+                return 1
+            
+            if limit > max_limit:
+                logger.warning(f"Limit {limit} > {max_limit}, koristim {max_limit}")
+                return max_limit
+            
+            return limit
+        
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid limit '{limit_arg}', koristim default {default}")
+            return default
+        
+    def extract_clean_json(text):
+        import re
+        # Traži bilo što što se nalazi unutar vitičastih zagrada { ... }
+        match = re.search(r'\{.*\}', text)
+        if match:
+            json_str = match.group(0)
+            return json.loads(json_str)  # Vraća rječnik: {"query": "filmovi o politici"}
+        return None
         
 # Quick test
 if __name__ == "__main__":

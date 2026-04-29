@@ -12,7 +12,11 @@ class AdvancedUrlBuilder:
         # Učitavanje specifičnih JSON-ova
         self.languages = self._load_json('data/languages.json')
         self.categories = self._load_json('data/udk_categories.json')
-        self.media_types = self._load_json('data/media_types.json')
+        self.media_data = self._load_json('data/media_types.json')
+        
+        self.media_types = self.media_data.get('types', {})
+        self.media_aliases = self.media_data.get('aliases', {})
+
         self.ages = self._load_json('data/ages.json')
         self.locations = {
             "marinici": "%23179%23281%23Sredi%c5%a1nja+knji%c5%benica+Marini%c4%87i",
@@ -220,6 +224,8 @@ class AdvancedUrlBuilder:
 
         # Građa (fid 2)
         media_key = metadata.get('gradja')
+        if media_key in self.media_aliases:
+            media_key = self.media_aliases[media_key]
         if media_key in self.media_types:
             val = self.media_types[media_key]
             params.append(f"fid{idx}={self.fid_map['gradja']}&fv{idx}={val}")
