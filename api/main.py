@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from scraper.availability_checker import ScraperAPIChecker
-    from chatbot.knowledge_base import KnowledgeBase
     from scraper.book_detail_parser import BookDetailParser
 except ImportError as e:
     logger.error(f"Greska pri importu modula: {e}")
@@ -60,7 +59,6 @@ GROQ_ENABLED = bool(groq_key)
 
 availability_checker = ScraperAPIChecker()
 book_detail_parser = BookDetailParser()
-kb = KnowledgeBase()
 
 if GROQ_ENABLED:
     logger.info("Groq API key pronađen - ULTRA BRZO!")
@@ -68,16 +66,6 @@ if GROQ_ENABLED:
 else:
     logger.warning("Groq API key nije postavljen")
     ai_chatbot = None
-
-# Učitaj knowledge base ako je prazan
-try:
-    if kb.get_count() == 0:
-        if os.path.exists('data/membership_info.json'):
-            kb.add_from_json('data/membership_info.json')
-        if os.path.exists('data/website_all_pages.json'):
-            kb.add_from_json('data/website_all_pages.json')
-except Exception as e:
-    logger.warning(f"Nisam uspio inicijalizirati KB: {e}")
 
 # Pydantic modeli za request/response
 class ChatRequest(BaseModel):

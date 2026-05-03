@@ -46,6 +46,7 @@ class FastAvailabilityChecker:
         Provjerava lokaciju i vraća detaljan status:
         - Što sve postoji (bez filtera)
         - Što je od toga dostupno (s filterom)
+        - Ako nađe e-knjigu, onda uvijek stavlja da je dostupna
         """
         import re
         search_query = book_title.lower().strip()
@@ -65,36 +66,60 @@ class FastAvailabilityChecker:
                 # 1. Prvo tražimo SVE što postoji pod tim imenom
                 res_all = await client.get(url_all)
                 soup_all = BeautifulSoup(res_all.text, 'html.parser')
+
                 all_books = []
+                ebooks = []
+
                 for r in soup_all.select('.divBibZapis'):
                     t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
                     # Zadržavamo samo one koji su stvarno match
-                    if all(word in re.sub(r'[^\w\s]', ' ', t.lower()).split() for word in search_query.split()):
+                    if not all(word in re.sub(r'[^\w\s]', ' ', t.lower()).split() for word in search_query.split()):
+                        continue
+                
+                    is_ebook = False
+                    img_tag = r.select_one('.vrstaGradjeIkona')
+                    if img_tag:
+                        src = img_tag.get('src', '').lower()
+                        alt = img_tag.get('alt', '').lower()
+                        if 'eknjiga' in src or 'e-knjiga' in alt:
+                            is_ebook = True
+                    
+                    if is_ebook:
+                            ebooks.append(t)
+                    else:
                         all_books.append(t)
-
+                
                 # 2. Zatim tražimo što je DOSTUPNO
-                res_avail = await client.get(url_available)
-                soup_avail = BeautifulSoup(res_avail.text, 'html.parser')
                 available_books = []
-                for r in soup_avail.select('.divBibZapis'):
-                    t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
-                    if all(word in re.sub(r'[^\w\s]', ' ', t.lower()).split() for word in search_query.split()):
-                        available_books.append(t)
+                if all_books:
+                    res_avail = await client.get(url_available)
+                    soup_avail = BeautifulSoup(res_avail.text, 'html.parser') 
+                    for r in soup_avail.select('.divBibZapis'):
+                        t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
+                        if all(word in re.sub(r'[^\w\s]', ' ', t.lower()).split() for word in search_query.split()):
+                            available_books.append(t)
 
                 return {
                     'existing': list(set(all_books)),
-                    'available': list(set(available_books))
+                    'available': list(set(available_books)),
+                    'ebooks': list(set(ebooks))
                 }
-        except Exception:
-            return {'existing': [], 'available': []}
+        except Exception as e:
+            logger.error(f"Greška u provjeri lokacije: {e}")
+            return {'existing': [], 'available': [], 'ebooks': []}
 
     def _format_result(self, book_query: str, marinici_res: Dict, viskovo_res: Dict) -> Dict:
         # Skupljamo sve naslove koji uopće postoje u bazi na obje lokacije
         svi_postojeći = list(set(marinici_res['existing'] + viskovo_res['existing']))
-        svi_dostupni = list(set(marinici_res['available'] + viskovo_res['available']))
-        
-        clean_query = book_query.lower().strip()
+        sve_eknjige = list(set(marinici_res['ebooks'] + viskovo_res['ebooks']))
+        svi_postojeći = [n for n in svi_postojeći if n not in sve_eknjige]
+
         final_messages = []
+
+        for naslov in sve_eknjige:
+            final_messages.append(
+                f"📱 '{naslov}' je e-knjiga — dostupna za online posudbu u bilo kojem trenutku putem digitalne platforme knjižnice."
+            )
 
         # Prolazimo kroz svaki naslov koji smo našli u bazi
         for naslov in svi_postojeći:

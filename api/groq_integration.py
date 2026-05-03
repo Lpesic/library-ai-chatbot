@@ -2,12 +2,12 @@
 Groq Integration - NAJBRŽA AI integracija
 """
 
-import os, json, sys
+import os, json, sys, re
 import logging
-import sqlite3
 from typing import Dict, List, Optional
 from groq import AsyncGroq
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -34,26 +34,27 @@ class LibraryChatbot:
             return ""
 
     def __init__(self):
-        from scraper.advanced_url_builder import AdvancedUrlBuilder
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             logger.error("GROQ_API_KEY nije postavljen u .env!")
             self.client = None
             return
-        self.url_builder = AdvancedUrlBuilder(api_key)
 
-        # Async Groq client
         self.client = AsyncGroq(api_key=api_key)
         
-        self.model = "llama-3.3-70b-versatile"
+        self.tool_model = "llama-3.3-70b-versatile"
+        self.fast_model = "llama-3.1-8b-instant"
         
-        info = self.load_membership_info()
-        # System prompt
-        self.system_prompt = f"""
+        self.info = self.load_membership_info()
+        self.system_prompt = self._build_system_prompt()
+        self.tools = self._define_tools()
+    
+    def _build_system_prompt(self):
+        return f"""
         Ti si AI asistent Knjižnice Halubajska Zora u Hrvatskoj.
 
         ### INFORMACIJE O KNJIŽNICI (Članstvo i pravila):
-        {info}
+        {self.info}
 
         ### TVOJA ULOGA:
         - Pomažeš korisnicima s informacijama o knjižnici, katalogu i događajima.
@@ -65,11 +66,19 @@ class LibraryChatbot:
         - DOSLJEDNOST: Koristi informacije koje ti vrate funkcije kao jedini izvor istine.
         - BEZ NAGAĐANJA: Ako funkcija ne vrati podatak (npr. o dostupnosti), nemoj ga izmišljati.
         - LIMIT REZULTATA: Max 10 rezultata po upitu, ako korisnik traži nemoguć broj rezultata, prilagodi ga i objasni zašto
+        - TOOL CALLING RULES: When you need to use a tool, use the internal function calling mechanism ONLY.
+        - NEVER output text like '<function=...>' or 'function_name "arg": "val"'.
+        - When calling a tool, provide ONLY the JSON arguments.
+
+        Primjer ISPRAVNOG tool calla:
+        
+            "name": "get_book_description",
+            "arguments": 
+                "book_title": "Vučji sat",
+                "mode": "summary"
+        
         """
         
-        # Function definitions (Groq podržava tool use!)
-        self.tools = self._define_tools()
-
     def _define_tools(self):
         """Definiraj funkcije koje AI može koristiti"""
         
@@ -127,7 +136,11 @@ class LibraryChatbot:
                     "properties": {
                         "query": {
                             "type": "string", 
-                            "description": "Originalni upit korisnika (npr. 'nove knjige na engleskom' ili 'psihologija')",
+                            "description": "Originalni upit korisnika (npr. 'nove knjige na engleskom' ili 'psihologija')"
+                            },
+                        "limit": {
+                            "type": ["integer", "string"],
+                            "description": "Koliko rezultata korisnik želi",
                             "default": 5,
                             "minimum": 1,
                             "maximum": 10
@@ -147,11 +160,8 @@ class LibraryChatbot:
                         "type": "object",
                         "properties": {
                             "limit": {
-                                "type": "integer",
-                                "description": "Broj događaja",
-                                "default": 5,
-                                "minimum": 1,
-                                "maximum": 10
+                                "type": ["integer", "string"],
+                                "description": "Broj događaja (npr. '3').",
                             }
                         }
                     }
@@ -171,7 +181,7 @@ class LibraryChatbot:
                                 "description": "Naslov knjige za koju tražimo slične"
                             },
                             "limit": {
-                                "type": "integer",
+                                "type": ["integer", "string"],
                                 "description": "Broj preporuka. VAŽNO: Pošalji isključivo kao cijeli broj (npr. 3, a ne '3').",
                                 "default": 3,
                                 "minimum": 1,
@@ -197,10 +207,7 @@ class LibraryChatbot:
         try:
             logger.info(f"Groq request: {user_message}")
             
-            # Pripremi poruke
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-            ]
+            messages = [{"role": "system", "content": self.system_prompt}]
 
             logger.info(f"📨 Šaljem Groq-u {len(messages)} poruka:")
             for i, msg in enumerate(messages):
@@ -211,83 +218,92 @@ class LibraryChatbot:
                 logger.info(f"  [{i}] {role}: {content}... (has_tool_calls: {has_tools})")    
 
             if conversation_history:
-                filtered_history = [
-                    msg for msg in conversation_history
-                    if msg.get("role") in ["user", "assistant"]
-                    and "tool_calls" not in msg
-                    and msg.get("content")
-                ]
-                messages.extend(filtered_history[-8:])
-                logger.info(f"Dodao {len(filtered_history[-8:])} poruka iz povijesti")
+                for msg in conversation_history[-4:]:
+                    if msg.get("role") in ["user", "assistant"] and not msg.get("tool_calls"):
+                        content = msg.get("content")
+                        if content:   
+                            clean_content = self._clean_json_artifacts(str(content))
+                            messages.append({"role": msg["role"], "content": clean_content})
 
-            messages.append({
-                "role": "system",
-                "content": "Use ONLY JSON format for tool calls. Example: {\"name\": \"search_catalog\", \"arguments\": {\"query\": \"text\"}}"
-            })
-            messages.append({"role": "user", "content": user_message})    
+            messages.append({"role": "user", "content": user_message})
+
             # Pozovi Groq sa tool use
             response = await self.client.chat.completions.create(
-                model=self.model,
+                model=self.tool_model,
                 messages=messages,
                 tools=self.tools, 
                 tool_choice="auto",  # AI odlučuje kad koristiti funkcije
-                temperature=0.1,
-                max_tokens=1000
+                temperature=0.0
             )
             
             response_message = response.choices[0].message
             
             # Provjeri ima li function calls
             if response_message.tool_calls:
-                if len(response_message.tool_calls) > 1:
-                    logger.warning(f"Bot je htio izvršiti {len(response_message.tool_calls)} funkcija. Režem na 1.")
-                    response_message.tool_calls = response_message.tool_calls[:1]
-                # -----------------------
-                
-                logger.info(f"Groq poziva {len(response_message.tool_calls)} funkcija")
-                return await self._handle_function_calls(response_message, messages)
+                tool_calls = response_message.tool_calls[:1]
+                return await self._handle_function_calls(tool_calls, messages)
             
             # Obični odgovor
             return response_message.content
         
         except Exception as e:
-            logger.error(f"Groq error: {e}")
-            import traceback
-            traceback.print_exc()
-            return "Nažalost, došlo je do greške. Pokušaj ponovno."
+            if "tool_use_failed" in str(e):
+                logger.warning("Tool failed → retry sa prisilnim pravilnim tipovima")
+
+            if "<function=" in str(e):
+                messages.append({
+                    "role": "system",
+                    "content": "NE koristi <function=...>. Koristi isključivo JSON tool_calls format."
+                })
+
+                retry = await self.client.chat.completions.create(
+                    model=self.tool_model,
+                    messages=messages,
+                    tools=self.tools,
+                    tool_choice="auto",
+                    temperature=0.0
+                )
+
+                msg = retry.choices[0].message
+
+                if msg.tool_calls:
+                    return await self._handle_function_calls(msg.tool_calls[:1], messages)
+
+                return msg.content
+        
+            raise e
     
-    async def _handle_function_calls(self, response_message, messages: List[Dict]) -> str:
+    async def _handle_function_calls(self, tool_calls, messages: List[Dict]) -> str:
         """Obradi function calls"""
-        import re
 
         # Dodaj AI-ov odgovor u povijest
         messages.append({
-                "role": "assistant",
-                "content": response_message.content or "",
-                "tool_calls": response_message.tool_calls
-            })
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": t.id,
+                    "type": "function",
+                    "function": {
+                        "name": t.function.name,
+                        "arguments": t.function.arguments
+                    }
+                } for t in tool_calls
+            ]
+        })
         
         # Izvršava funkcije
-        for tool_call in response_message.tool_calls:
+        for tool_call in tool_calls:
             function_name = tool_call.function.name
             raw_args = tool_call.function.arguments
 
-            if str(raw_args).strip().startswith('<') and str(raw_args).strip().endswith('>'):
-                logger.warning(f"Detektiran XML format, čistim: {raw_args}")
-                function_args = self.extract_clean_json(raw_args) # Poziva tvoju funkciju
-            else:
-                try:
-                    # Prvo pokušaj normalno
-                    function_args = json.loads(raw_args)
-                except json.JSONDecodeError:
-                    logger.warning(f"JSONDecodeError na: {raw_args}. Pokušavam extract...")
-                    function_args = self.extract_clean_json(raw_args)
-            
-            if function_args is None:
-                logger.error(f"Kritična greška: Neuspješno dekodiranje argumenata za {function_name}")
-                continue
+            try:
+                function_args = json.loads(raw_args)
+            except json.JSONDecodeError:
+                logger.warning(f"Popravljam JSON argumenata za {function_name}")
+                function_args = self.extract_clean_json(raw_args) or {}       
             
             function_response = await self._execute_function(function_name, function_args)
+
             response_str = str(function_response)
             logger.info(f"Funkcija vratila: {response_str[:200]}...")
 
@@ -310,12 +326,16 @@ class LibraryChatbot:
         # Pozovi Groq ponovno sa rezultatima
         try:
             final_response = await self.client.chat.completions.create(
-                model=self.model,
+                model=self.fast_model,
                 messages=messages,
-                temperature=0.0, # za pozivanje funkcija treba nam manja maštovitost
-                max_tokens=1000
+                temperature=0.5
             )
-            return final_response.choices[0].message.content
+
+            final_text = final_response.choices[0].message.content
+            final_text = self._clean_json_artifacts(final_text)
+
+            return final_text 
+        
         except Exception as e:
             logger.error(f"Greška u finalnom odgovoru: {e}")
             return "Pronašao sam rezultate, ali ih ne mogu prikazati. Pokušaj ponovno."
@@ -429,7 +449,13 @@ class LibraryChatbot:
                 if function_args is None:
                     function_args = {}
 
-                requested_limit = function_args.get("limit", 5)
+                raw_limit = function_args.get("limit", 5)
+
+                try:
+                    requested_limit = int(raw_limit)
+                except (ValueError, TypeError):
+                    requested_limit = 5
+
                 limit = self._validate_limit(requested_limit, default=5, max_limit=10)
                 
                 logger.info(f"📅 Dohvaćam događaje: limit={limit}")
@@ -558,11 +584,7 @@ class LibraryChatbot:
             return None
         
         # Pretraži katalog
-        try:
-            scraper_api_key = os.getenv('SCRAPER_API_KEY')
-            if not scraper_api_key:
-                return None
-            
+        try:         
             import urllib.parse
             import httpx
             from bs4 import BeautifulSoup
@@ -571,17 +593,19 @@ class LibraryChatbot:
             encoded_query = urllib.parse.quote(book_title, safe='')
             search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?currentPage=1&searchById=1&sort=0&age=0&spid0=1&spv0={encoded_query}"
             
-            params = {
-                'api_key': scraper_api_key,
-                'url': search_url,
-                'country_code': 'hr',
-                'render': 'false'
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Referer": "https://katalog.halubajska-zora.hr/",
+                "Connection": "keep-alive"
             }
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get("http://api.scraperapi.com/", params=params)
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                response = await client.get(search_url, headers=headers)
             
             if response.status_code != 200:
+                logger.error(f"Katalog vratio status {response.status_code}")
                 return None
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -640,7 +664,7 @@ class LibraryChatbot:
         try:
             response = await self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant",
+                model=self.fast_model,
                 temperature=0.7,
                 max_tokens=300
             )
@@ -680,14 +704,48 @@ class LibraryChatbot:
             logger.warning(f"Invalid limit '{limit_arg}', koristim default {default}")
             return default
         
-    def extract_clean_json(text):
-        import re
+    def extract_clean_json(self, text):    
         # Traži bilo što što se nalazi unutar vitičastih zagrada { ... }
-        match = re.search(r'\{.*\}', text)
-        if match:
-            json_str = match.group(0)
-            return json.loads(json_str)  # Vraća rječnik: {"query": "filmovi o politici"}
+        try:
+            match = re.search(r'(\{.*\})', text, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))  # Vraća rječnik: {"query": "filmovi o politici"}
+        except:
+            return None
         return None
+    
+    def _clean_json_artifacts(self, text: str) -> str:
+        """
+        Ukloni JSON artefakte iz Groq odgovora
+        
+        Primjeri:
+        - {"book_title":"X","mode":"summary"}
+        - {"query":"nešto"}
+        - <function=...>
+        """
+        import re
+        
+        if not text:
+            return text
+        
+        # 1. Ukloni JSON objekte ({"key":"value",...})
+        # Pattern: { bilo_što } ali NE unutar normalnog teksta
+        cleaned = re.sub(r'\s*\{["\']?\w+["\']?\s*:\s*["\']?[^}]+["\']?\}\s*', '', text)
+        
+        # 2. Ukloni XML-like tagove (<function=...>)
+        cleaned = re.sub(r'<function[^>]*>.*?</function>', '', cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r'<[^>]+>', '', cleaned)
+        
+        # 3. Ukloni trostruke ili više razmaka
+        cleaned = re.sub(r'\s{3,}', ' ', cleaned)
+        
+        # 4. Trim
+        cleaned = cleaned.strip()
+        
+        if cleaned != text:
+            logger.info(f"Očišćen JSON artefakt: {len(text)} → {len(cleaned)} chars")
+        
+        return cleaned
         
 # Quick test
 if __name__ == "__main__":
