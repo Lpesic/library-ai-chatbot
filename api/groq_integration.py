@@ -67,6 +67,7 @@ class LibraryChatbot:
         - BEZ NAGAĐANJA: Ako funkcija ne vrati podatak (npr. o dostupnosti), nemoj ga izmišljati.
         - LIMIT REZULTATA: Max 10 rezultata po upitu, ako korisnik traži nemoguć broj rezultata, prilagodi ga i objasni zašto
         - TOOL CALLING RULES: When you need to use a tool, use the internal function calling mechanism ONLY.
+        - Ako korisnik pita o pravilima posudbe, članarini, radnom vremenu, kontaktu ili općim informacijama o knjižnici — odgovori DIREKTNO iz informacija o knjižnici, ne koristi alate.
         - NEVER output text like '<function=...>' or 'function_name "arg": "val"'.
         - When calling a tool, provide ONLY the JSON arguments.
 
@@ -155,7 +156,7 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "get_library_events",
-                    "description": "Dohvati informacije o događajima, radionicama i novostima u knjižnici. Koristi kad korisnik pita o događanjima, radionicama, pričaonicama, novostima ili aktivnostima.",
+                    "description": "Dohvati informacije kada korisnik pita o događajima, radionicama, pričaonicama, novostima ili aktivnostima u knjižnici.",
                     "parameters": {
                         "type": "object",
                         "properties": {
