@@ -95,7 +95,7 @@ class AdvancedUrlBuilder:
             - Ako kaže "zadnja dva mjeseca", mapiraj na (90) ili (30).
             - "najčitanije", "popularno", "hitovi" -> koristi `top` parametar.
             - "tjedan" -> 7, "mjesec" -> 30, "tromjesečje" -> 90, "pola godine" -> 180, "godina" -> 365.
-            - Ako ne kaže period, default je 30.
+            
         7. **Sortiranje (sort):**
             - "po autoru", "abecedno pisci", "poredaj autore" -> `sort` na 1.
             - "po naslovu", "abecedno knjige", "poredaj po imenu" -> `sort` na 2.
@@ -124,7 +124,7 @@ class AdvancedUrlBuilder:
             "sort": integer ou null
         }}
         """
-
+        # - Ako ne kaže period, default je 30.
         response = self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},

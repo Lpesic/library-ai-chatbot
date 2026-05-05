@@ -2,21 +2,30 @@
 Groq Integration - NAJBRŽA AI integracija
 """
 
-import os, json, sys, re
+import os, json, re
+import uuid
+import time
 import logging
 from typing import Dict, List, Optional
 from groq import AsyncGroq
 
-logging.basicConfig(level=logging.INFO)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
 logger = logging.getLogger(__name__)
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class LibraryChatbot:
     """Groq-powered library chatbot"""
     
+    def _new_request_id(self):
+        return str(uuid.uuid4())[:8]
+
     def load_membership_info(self) -> str:
         """Učitaj informacije o članstvu"""
-        path = 'data/membership_info.json'
+        path = os.path.join(BASE_DIR, "data", "membership_info.json")
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -201,7 +210,11 @@ class LibraryChatbot:
         conversation_history: Optional[List[Dict]] = None
     ) -> str:
         """Chat sa Groq modelom"""
-        
+        request_id = self._new_request_id()
+        start_time = time.time()
+
+        logger.info(f"[{request_id}] CHAT_START: {user_message}")
+
         if not self.client:
             return "Groq API nije konfiguriran. Postavi GROQ_API_KEY u .env datoteci."
         
@@ -244,6 +257,10 @@ class LibraryChatbot:
                 tool_calls = response_message.tool_calls[:1]
                 return await self._handle_function_calls(tool_calls, messages)
             
+            logger.info(
+                f"[{request_id}] CHAT_DONE in {time.time() - start_time:.2f}s"
+            )
+
             # Obični odgovor
             return response_message.content
         
@@ -271,7 +288,7 @@ class LibraryChatbot:
                     return await self._handle_function_calls(msg.tool_calls[:1], messages)
 
                 return msg.content
-        
+            
             raise e
     
     async def _handle_function_calls(self, tool_calls, messages: List[Dict]) -> str:
@@ -343,7 +360,8 @@ class LibraryChatbot:
     
     async def _execute_function(self, function_name: str, function_args: Dict):
         """Izvršava pozvanu funkciju"""
-                   
+        func_start = time.time()
+        logger.info(f"TOOL_START: {function_name}")            
         try:
             # PRETRAGA KATALOGA
             if function_name == "search_catalog":
@@ -377,6 +395,10 @@ class LibraryChatbot:
                 if isinstance(requested_limit, int) and requested_limit > 10:
                     note = f"\n\n💡 Napomena: Tražili ste {requested_limit} knjiga, ali prikazujem najboljih {safe_limit}."
 
+                logger.info(
+                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
+                )
+
                 return {
                 "items": items, 
                 "count": len(items),
@@ -384,6 +406,7 @@ class LibraryChatbot:
                 "note": note,
                 "uputa": (
                     "Ovo su rezultati pretrage iz kataloga. "
+                    "NIKADA nemoj generirati nove naslove, koristi isključivo rezultate iz liste 'items'. "
                     "Prikaži ih kao preglednu listu (Naslov - Autor). "
                     "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
                     "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
@@ -404,6 +427,10 @@ class LibraryChatbot:
                 checker = FastAvailabilityChecker()
 
                 availability_data = await checker.check_availability(book_title)
+
+                logger.info(
+                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
+                )
 
                 return {
                     "podaci": availability_data,
@@ -437,6 +464,10 @@ class LibraryChatbot:
                 # AI generira opis
                 description = await self._generate_smart_description(details)
                 
+                logger.info(
+                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
+                )
+
                 return {
                     "title": details.get('title'),
                     "author": details.get('author'),
@@ -493,6 +524,10 @@ class LibraryChatbot:
                     
                     result_text += "\n"
                 
+                logger.info(
+                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
+                )
+                
                 return {
                     "data": result_text.strip(),
                     "uputa": (
@@ -540,12 +575,34 @@ class LibraryChatbot:
                     if isinstance(recommendations[section], list):
                         all_recs.extend(recommendations[section])
 
-                # 6. FALLBACK: Ako su preporuke prazne, koristi TAGOVE
+                # 6. FALLBACK: Ako su preporuke prazne, koristi KLASIFIKACIJE pa TAGOVE
                 source = "katalog_recommendations"
                 used_tag = None
+                used_classification = None
 
                 if not all_recs:
-                    logger.info(f"Preporuke prazne za '{book_title}', provjeravam tagove...")
+                    logger.info(f"Preporuke prazne za '{book_title}', provjeravam klasifikacije...")
+                    classifications = details.get('classifications', [])
+                    
+                    if classifications:
+                        used_class = max(
+                            classifications,
+                            key=lambda c: len(str(c.get("code", "")))
+                        )
+                        raw_code = used_class.get("code", "")
+                        match_code = re.match(r"[\d\.\-]+", str(raw_code))
+                        used_classification = match_code.group(0) if match_code else raw_code 
+
+                        logger.info(f"Pokrećem pretragu za klasifikacijsku oznaku: {used_classification}")
+                        
+                        class_results = await self._search_by_class(used_classification)
+                        
+                        # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
+                        all_recs = [b for b in class_results if str(b.get('id')) != clean_id]
+                        source = "classification"
+
+                if not all_recs:
+                    logger.info(f"Preporuke po klasifikacijama prazne za '{book_title}', provjeravam tagove...")
                     tags = details.get('tags', [])
                     
                     if tags:
@@ -557,15 +614,32 @@ class LibraryChatbot:
                         # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
                         all_recs = [b for b in tag_results if str(b.get('id')) != clean_id]
                         source = "tag_search"
-                    else:
-                        return {"message": f"Za knjigu '{book_title}' trenutno nema preporuka ni tagova."}
 
+                    else:
+                        return {
+                            "message": f"Za knjigu '{book_title}' trenutno nema preporuka ni tagova.",
+                            "source": None
+                            }
+
+                logger.info(
+                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
+                )
                 # 7. Formatiraj odgovor za AI
                 return {
                     "original_book": details.get('title', book_title),
                     "recommendations": all_recs[:limit],
                     "source": source,
-                    "used_tag": used_tag
+                    "used_tag": used_tag,
+                    "used_classification": used_classification,
+                    "uputa": (
+                        "Ovo su preporučene knjige. "       
+                        "NIKADA nemoj generirati nove naslove, koristi isključivo rezultate iz liste 'recommendations'. "
+                        "Prikaži ih kao preglednu listu (Naslov - Autor) "
+                        "Ako lista nije prazna, OBAVEZNO ih prikaži. "
+                        "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
+                        "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
+                        "Nemoj korisniku prikazivati klasifikacijsku oznaku, njega ne zanimaju brojevi samo naslovi."
+                    )
                 }
 
             else:
@@ -747,6 +821,32 @@ class LibraryChatbot:
             logger.info(f"Očišćen JSON artefakt: {len(text)} → {len(cleaned)} chars")
         
         return cleaned
+    
+    async def _search_by_tag(self, tag: str):
+        from scraper.advanced_url_builder import AdvancedUrlBuilder
+        from scraper.universal_scraper import UniversalScraper
+        
+        builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
+        metadata = builder.analyze_query(tag)
+        url = builder.build_url(metadata)
+        
+        scraper = UniversalScraper()
+        return await scraper.fetch_and_parse(url, limit=10, random_selection=True)
+    
+    async def _search_by_class(self, classification_code: str):
+        from scraper.universal_scraper import UniversalScraper
+        
+        url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?searchById=40&xm0=1&spid0=40&spv0={classification_code}"
+        
+        scraper = UniversalScraper()
+        
+        results = await scraper.fetch_and_parse(
+            url,
+            limit=10,
+            random_selection=False
+        )
+        
+        return results
         
 # Quick test
 if __name__ == "__main__":
