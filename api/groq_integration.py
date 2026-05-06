@@ -436,8 +436,11 @@ class LibraryChatbot:
                     "podaci": availability_data,
                     "uputa": (
                         "Ovo su podaci o dostupnosti u stvarnom vremenu. "
-                        "Koristi ✅ za dostupno i ❌ za posuđeno. Obavezno navedi lokacije dostupnosti (Marinići ili Viškovo)."
-                        "Ako postoje slični naslovi koji su dostupni, predloži ih kao alternativu"
+                        "Ako poruka kaže da knjiga NIJE PRONAĐENA, to NE znači da je posuđena nego da upit nije dobar. "
+                        "U tom slučaju zamoli korisnika da pokuša s točnijim ili kraćim naslovom. "
+                        "Koristi ✅ za dostupno i ❌ za posuđeno samo kada knjiga postoji. "
+                        "Obavezno navedi lokacije dostupnosti (Marinići ili Viškovo). "
+                        "Ako postoje slični naslovi koji su dostupni, predloži ih kao alternativu. "
                     )
                 }
             

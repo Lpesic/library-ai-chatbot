@@ -34,6 +34,8 @@ class FastAvailabilityChecker:
                 all_books = []
                 ebooks = []
 
+                # PRIMARNI SEARCH
+
                 for r in soup_all.select('.divBibZapis'):
                     t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
                     # Zadržavamo samo one koji su stvarno match
@@ -53,6 +55,46 @@ class FastAvailabilityChecker:
                             ebooks.append(t)
                     else:
                         all_books.append(t)
+
+                # FALLBACK SEARCH (ako nema rezultata)
+
+                if not all_books and not ebooks:
+                    logger.info("Nema rezultata -> pokrećem fallback pretragu")
+
+                    query_variants = self._generate_query_variants(book_title)
+
+                    for variant in query_variants:
+                        logger.info(f"Fallback pokušaj: '{variant}'")
+
+                        encoded_variant = urllib.parse.quote(variant)
+                        fallback_url = f"{self.base_url}?searchById=1&spid0=1&spv0={encoded_variant}"
+
+                        res_fb = await client.get(fallback_url)
+                        soup_fb = BeautifulSoup(res_fb.text, 'html.parser')
+
+                        for r in soup_fb.select('.divBibZapis'):
+                            t = r.select_one('.bibZapisOpis').get_text(" ", strip=True).split('/')[0].strip()
+
+                            if variant.lower() in t.lower():
+                                img_tag = r.select_one('.vrstaGradjeIkona')
+                                is_ebook = False
+                                
+                                if img_tag:
+                                    src = img_tag.get('src', '').lower()
+                                    alt = img_tag.get('alt', '').lower()
+                                    if 'eknjiga' in src or 'e-knjiga' in alt:
+                                        is_ebook = True
+
+                                if is_ebook:
+                                    ebooks.append(t)
+                                else:
+                                    all_books.append(t)
+
+                        if all_books or ebooks:
+                            logger.info(f"Fallback uspio s: '{variant}'")
+                            break
+
+                # LOKACIJE
 
                 tasks = [
                     self._check_location(book_title, 'marinici', client, search_query, all_books, ebooks, url_all),
@@ -141,6 +183,26 @@ class FastAvailabilityChecker:
             msg = "\n".join(final_messages)
 
         return {'message': msg}
+    
+    def _generate_query_variants(self, query: str) -> List[str]:
+        query = query.lower().strip()
+        
+        variants = []
+        variants.append(query)
+
+        # makni autora nakon "-"
+        if "-" in query:
+            variants.append(query.split("-")[0].strip())
+
+        # makni zareze
+        variants.append(query.replace(",", " "))
+
+        # samo riječi >= 2
+        words = query.split()
+        if len(words) > 2:
+            variants.append(" ".join(words[:2])) 
+
+        return list(dict.fromkeys(variants))
 
 if __name__ == "__main__":
     async def test():
