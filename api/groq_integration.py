@@ -1,7 +1,6 @@
 """
 Groq Integration - NAJBRŽA AI integracija
 """
-
 import os, json, re
 import uuid
 import time
@@ -9,16 +8,46 @@ import logging
 import asyncio
 import random
 import httpx
+import hashlib
+from collections import defaultdict
+from cachetools import TTLCache
 from typing import Dict, List, Optional
 from groq import AsyncGroq
+from contextvars import ContextVar
+from logging.handlers import RotatingFileHandler
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+file_handler = RotatingFileHandler(
+    os.path.join(LOG_DIR, "app.log"),
+    maxBytes=5_000_000,
+    backupCount=3,
+    encoding="utf-8"
+)
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
+    format='%(message)s',
+    handlers=[
+        file_handler,
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
+
+request_id_var = ContextVar("request_id", default=None)
+
+# CACHE LAYER
+search_cache = TTLCache(maxsize=1000, ttl=300)  # 5 min
+description_cache = TTLCache(maxsize=500, ttl=3600)  # 1h
+availability_cache = TTLCache(maxsize=2000, ttl=60)  # 1 min
+recommendation_cache = TTLCache(maxsize=500, ttl=600)  # 10 min
+events_cache = TTLCache(maxsize=200, ttl=600)          # 10 min
+routing_cache = TTLCache(maxsize=2000, ttl=600)
+book_id_cache = TTLCache(maxsize=5000, ttl=3600)
 
 RETRYABLE_ERRORS = (
     asyncio.TimeoutError,
@@ -27,6 +56,21 @@ RETRYABLE_ERRORS = (
     httpx.ReadError,
     httpx.RemoteProtocolError
 )
+
+metrics = {
+    "tools": defaultdict(lambda: {
+        "calls": 0,
+        "success": 0,
+        "fail": 0,
+        "total_latency": 0.0
+    }),
+    "requests": {
+        "total": 0,
+        "success": 0,
+        "fail": 0
+    }
+}
+metrics["requests"]["avg_latency"] = 0.0
 class LibraryChatbot:
     """Groq-powered library chatbot"""
     
@@ -104,6 +148,8 @@ class LibraryChatbot:
         
         self.tool_model = "llama-3.3-70b-versatile"
         self.fast_model = "llama-3.1-8b-instant"
+
+        self.semaphore = asyncio.Semaphore(3)
         
         self.info = self.load_membership_info()
         self.system_prompt = self._build_system_prompt()
@@ -262,17 +308,21 @@ class LibraryChatbot:
     ) -> str:
         """Chat sa Groq modelom"""
         request_id = self._new_request_id()
+        request_id_var.set(request_id)
         start_time = time.time()
+        metrics["requests"]["total"] += 1
 
-        logger.info(f"[{request_id}] CHAT_START: {user_message}")
+        self.log(
+            "request_start",
+            user_message=user_message[:300],
+        )
 
         if not self.client:
             return "Groq API nije konfiguriran. Postavi GROQ_API_KEY u .env datoteci."
         
-        try:
-            logger.info(f"Groq request: {user_message}")
-            
+        try:  
             messages = [{"role": "system", "content": self.system_prompt}]
+            self.log("groq_request", model=self.tool_model, messages=len(messages))
 
             logger.info(f"📨 Šaljem Groq-u {len(messages)} poruka:")
             for i, msg in enumerate(messages):
@@ -292,16 +342,51 @@ class LibraryChatbot:
 
             messages.append({"role": "user", "content": user_message})
 
+            intent_key = self._intent_key(user_message)
+
+            if intent_key in routing_cache:
+                cached = routing_cache[intent_key]
+                tool_name = cached["tool"]
+                tool_args = cached["args"]
+
+                logger.info(
+                    f"ROUTING CACHE HIT -> {tool_name}"
+                )
+
+                tool_result = await self._execute_function(tool_name, tool_args)
+
+                fake_tool_call = type(
+                    "FakeToolCall",
+                    (),
+                    {
+                        "id": "cached_tool_call",
+                        "function": type(
+                            "FakeFunction",
+                            (),
+                            {
+                                "name": tool_name,
+                                "arguments": json.dumps(tool_args)
+                            }
+                        )()
+                    }
+                )()
+
+                return await self._handle_function_calls(
+                    [fake_tool_call],
+                    messages
+                )
+
             # Pozovi Groq sa tool use
-            response = await self.client.chat.completions.create(
-                model=self.tool_model,
-                messages=messages,
-                tools=self.tools, 
-                tool_choice="auto",  # AI odlučuje kad koristiti funkcije
-                temperature=0.0,
-                timeout=30
-            )
-            
+            async with self.semaphore:
+                response = await self.client.chat.completions.create(
+                    model=self.tool_model,
+                    messages=messages,
+                    tools=self.tools, 
+                    tool_choice="auto",  # AI odlučuje kad koristiti funkcije
+                    temperature=0.0,
+                    timeout=30
+                )
+
             response_message = response.choices[0].message
             
             # Provjeri ima li function calls
@@ -309,11 +394,35 @@ class LibraryChatbot:
                 tool_calls = response_message.tool_calls[:1]
                 return await self._handle_function_calls(tool_calls, messages)
             
-            logger.info(
-                f"[{request_id}] CHAT_DONE in {time.time() - start_time:.2f}s"
+            self.log(
+                "chat_done",
+                request_id = request_id_var.get(),
+                latency=round(time.time() - start_time, 2)
+            )
+            latency = round(time.time() - start_time, 2)
+
+            if latency > 8:
+                logger.warning(
+                    json.dumps({
+                        "event": "slow_request",
+                        "latency": latency,
+                        "request_id": request_id
+                    })
+                )
+
+            metrics["requests"]["success"] += 1
+
+            current_avg = metrics["requests"]["avg_latency"]
+
+            metrics["requests"]["avg_latency"] = (
+                (current_avg + latency) / 2
             )
 
-            # Obični odgovor
+            self.log(
+                "request_success",
+                latency=latency
+            )
+
             return response_message.content
         
         except Exception as e:
@@ -322,6 +431,9 @@ class LibraryChatbot:
 
             if "timeout" in str(e).lower():
                 return "Katalog trenutno sporije odgovara. Pokušajte ponovno za nekoliko trenutaka."
+            
+            if "rate_limit" in str(e).lower():
+                await asyncio.sleep(2)
 
             if "<function=" in str(e):
                 messages.append({
@@ -329,13 +441,14 @@ class LibraryChatbot:
                     "content": "NE koristi <function=...>. Koristi isključivo JSON tool_calls format."
                 })
 
-                retry = await self.client.chat.completions.create(
-                    model=self.tool_model,
-                    messages=messages,
-                    tools=self.tools,
-                    tool_choice="auto",
-                    temperature=0.0
-                )
+                async with self.semaphore:
+                    retry = await self.client.chat.completions.create(
+                        model=self.tool_model,
+                        messages=messages,
+                        tools=self.tools,
+                        tool_choice="auto",
+                        temperature=0.0
+                    )
 
                 msg = retry.choices[0].message
 
@@ -344,10 +457,21 @@ class LibraryChatbot:
 
                 return msg.content
             
-            raise e
+            metrics["requests"]["fail"] += 1
+            self.log(
+                "request_fail",
+                error_type=type(e).__name__,
+                error=str(e)[:300],
+                latency=round(time.time() - start_time, 2)
+            )
+            logger.exception("Unhandled exception")
+
+            raise
     
     async def _handle_function_calls(self, tool_calls, messages: List[Dict]) -> str:
         """Obradi function calls"""
+
+        pipeline_start = time.time()
 
         # Dodaj AI-ov odgovor u povijest
         messages.append({
@@ -367,12 +491,20 @@ class LibraryChatbot:
         # Izvršava funkcije
         for tool_call in tool_calls:
             function_name = tool_call.function.name
+            self.log(
+                "tool_called",
+                tool=function_name
+            )
             raw_args = tool_call.function.arguments
 
             try:
                 function_args = json.loads(raw_args)
             except json.JSONDecodeError:
-                logger.warning(f"Popravljam JSON argumenata za {function_name}")
+                self.log(
+                    "json_repair_attempt",
+                    tool=function_name,
+                    raw_args=raw_args[:500]
+                )
                 function_args = self.extract_clean_json(raw_args) or {}       
             
             function_response = await self._execute_function(function_name, function_args)
@@ -390,11 +522,26 @@ class LibraryChatbot:
                 "content": json.dumps(function_response, ensure_ascii=False)
             })
 
+            intent_key = self._intent_key(
+                next(m["content"] for m in messages if m["role"] == "user")
+            )
+
+            routing_cache[intent_key] = {
+                "tool": function_name,
+                "args": function_args
+            }
+
             if uputa:
                 current_content = json.loads(messages[-1]["content"])
                 if isinstance(current_content, dict):
                     current_content["_internal_note"] = uputa
                     messages[-1]["content"] = json.dumps(current_content, ensure_ascii=False)
+
+        self.log(
+            "tool_pipeline_done",
+            latency=round(time.time() - pipeline_start, 2),
+            tools=[t.function.name for t in tool_calls]
+        )
         
         # Pozovi Groq ponovno sa rezultatima
         try:
@@ -407,6 +554,10 @@ class LibraryChatbot:
             final_text = final_response.choices[0].message.content
             final_text = self._clean_json_artifacts(final_text)
 
+            self.log(
+                "response_generated",
+                chars=len(final_text)
+            )
             return final_text 
         
         except Exception as e:
@@ -416,11 +567,26 @@ class LibraryChatbot:
     async def _execute_function(self, function_name: str, function_args: Dict):
         """Izvršava pozvanu funkciju"""
         func_start = time.time()
-        logger.info(f"TOOL_START: {function_name}")            
+        logger.info(json.dumps({
+            "event": "tool_start",
+            "tool": function_name,
+            "request_id": request_id_var.get()
+        }))
+        self.log("tool_start", tool=function_name, args=function_args)
+        success = True            
         try:
             # PRETRAGA KATALOGA
             if function_name == "search_catalog":
                 query = function_args.get("query") or function_args.get("book_title")
+                requested_limit = function_args.get("limit", 8)    
+                safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
+
+                cache_key = f"search:{hash(query.lower().strip())}:{safe_limit}"
+                if cache_key in search_cache:
+                    self._cache_hit("search", cache_key)
+                    return search_cache[cache_key]
+                else:
+                    self._cache_miss("search", cache_key)
                 
                 logger.info(f"Prosljeđujem '{query}' u AdvancedUrlBuilder")
 
@@ -437,9 +603,6 @@ class LibraryChatbot:
                 from scraper.universal_scraper import UniversalScraper
                 scraper = UniversalScraper()
 
-                requested_limit = function_args.get("limit", 8)
-                safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
-
                 items = await self._retry_async(
                     scraper.fetch_and_parse,
                     target_url,
@@ -453,11 +616,7 @@ class LibraryChatbot:
                 if isinstance(requested_limit, int) and requested_limit > 10:
                     note = f"\n\n💡 Napomena: Tražili ste {requested_limit} knjiga, ali prikazujem najboljih {safe_limit}."
 
-                logger.info(
-                    f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
-                )
-
-                return {
+                result = {
                 "items": items, 
                 "count": len(items),
                 "query": query,
@@ -469,12 +628,40 @@ class LibraryChatbot:
                     "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
                     "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
                     "Navedi što je pronađeno, a možeš i ponuditi korisniku da provjeriš dostupnost za konkretne rezultate ili ponuditi dati opis."
+                    )
+                }
+                
+                search_cache[cache_key] = result
+                
+                latency = time.time() - func_start
+                self._track_tool_metrics(function_name, latency, success)
+
+                logger.info(json.dumps({
+                    "event": "tool_end",
+                    "tool": function_name,
+                    "latency_ms": round((time.time() - func_start) * 1000, 2),
+                    "success": success,
+                    "request_id": request_id_var.get()
+                }))
+
+                self.log(
+                    "tool_success",
+                    tool=function_name,
+                    latency=round(time.time() - func_start, 2)
                 )
-            }
+                return result    
 
             # DOSTUPNOST
             elif function_name == "check_availability":
                 book_title = function_args.get("book_title") or function_args.get("query") or function_args.get("search_query")
+
+                cache_key = f"avail:{book_title.lower().strip()}"
+
+                if cache_key in availability_cache:
+                    self._cache_hit("availability", cache_key)
+                    return availability_cache[cache_key]
+                else:
+                    self._cache_miss("availability", cache_key)
 
                 if not book_title or book_title == 'None':
                     return {"error": "Niste naveli naslov knjige za provjeru."}
@@ -495,6 +682,11 @@ class LibraryChatbot:
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
                 )
 
+                availability_cache[cache_key] = {
+                    "podaci": availability_data,
+                    "cached": True
+                }
+
                 return {
                     "podaci": availability_data,
                     "uputa": (
@@ -510,8 +702,14 @@ class LibraryChatbot:
             # OPIS KNJIGE
             elif function_name == "get_book_description":
                 book_title = function_args.get("book_title")
-                
-                logger.info(f"📖 Get description: '{book_title}'")
+                logger.info(f"Get description: '{book_title}'")
+
+                cache_key = f"desc:{book_title.lower().strip()}"
+                if cache_key in description_cache:
+                    self._cache_hit("description", cache_key)
+                    return description_cache[cache_key]
+                else:
+                    self._cache_miss("description", cache_key)                   
                 
                 # Pronađi book_id
                 book_id = await self._find_book_id(book_title)
@@ -534,13 +732,21 @@ class LibraryChatbot:
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
                 )
 
-                return {
+                result = {
                     "title": details.get('title'),
                     "author": details.get('author'),
                     "description": description,
                     "year": details.get('year'),
                     "url": details.get('url')
                 }
+
+                description_cache[cache_key] = result
+                self.log(
+                    "tool_success",
+                    tool=function_name,
+                    latency=round(time.time() - func_start, 2)
+                )
+                return result
             
             # DOGAĐAJI
             elif function_name == "get_library_events":
@@ -556,8 +762,16 @@ class LibraryChatbot:
 
                 limit = self._validate_limit(requested_limit, default=5, max_limit=10)
                 
-                logger.info(f"📅 Dohvaćam događaje: limit={limit}")
-                
+                logger.info(f"Dohvaćam događaje: limit={limit}")
+
+                cache_key = f"events:{limit}"
+
+                if cache_key in events_cache:
+                    self._cache_hit("events", cache_key)
+                    return events_cache[cache_key]
+                else:
+                    self._cache_miss("events", cache_key)     
+                           
                 from scraper.events_scraper import EventsScraper
                 scraper = EventsScraper()
                 events = await self._retry_async(
@@ -599,7 +813,7 @@ class LibraryChatbot:
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
                 )
                 
-                return {
+                result = {
                     "data": result_text.strip(),
                     "uputa": (
                         "Predstavi ove događaje korisniku na ljubazan način. "
@@ -608,6 +822,14 @@ class LibraryChatbot:
                         "Obavezno zadrži linkove i datume onako kako su navedeni."
                     )
                 }
+
+                events_cache[cache_key] = result
+                self.log(
+                    "tool_success",
+                    tool=function_name,
+                    latency=round(time.time() - func_start, 2)
+                )
+                return result
             
             # SLIČNE KNJIGE
             elif function_name == "get_similar_books":
@@ -620,6 +842,14 @@ class LibraryChatbot:
                 limit = self._validate_limit(requested_limit, default=5, max_limit=10)
                 
                 logger.info(f"Tražim preporuke za: '{book_title}'")
+
+                cache_key = f"rec:{book_title.lower().strip()}:{limit}"
+
+                if cache_key in recommendation_cache:
+                    self._cache_hit("recommendations", cache_key)
+                    return recommendation_cache[cache_key]
+                else:
+                    self._cache_miss("recommendations", cache_key)
                 
                 # 2. Pronađi ID knjige
                 raw_id = await self._find_book_id(book_title)
@@ -680,7 +910,7 @@ class LibraryChatbot:
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
                 )
                 # 7. Formatiraj odgovor za AI
-                return {
+                result = {
                     "original_book": details.get('title', book_title),
                     "recommendations": all_recs[:limit],
                     "source": source,
@@ -693,17 +923,35 @@ class LibraryChatbot:
                         "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
                         "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
                         "Nemoj korisniku prikazivati klasifikacijsku oznaku, njega ne zanimaju brojevi samo naslovi."
-                    )
-                }
+                        )
+                    }
+                
+                success = True
+                recommendation_cache[cache_key] = result
+                self.log(
+                    "tool_success",
+                    tool=function_name,
+                    latency=round(time.time() - func_start, 2)
+                )
+                return result
 
             else:
                 return {"error": f"Nepoznata funkcija: {function_name}"}
         
         except Exception as e:
-            logger.error(f"Greška izvršenja funkcije: {e}")
-            import traceback
-            traceback.print_exc()
-            return {"error": str(e)} 
+            success = False
+            self.log(
+                "tool_error",
+                tool=function_name,
+                args=function_args,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            return {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "retryable": isinstance(e, RETRYABLE_ERRORS),
+            }
         
     async def _find_book_id(self, book_title: str) -> Optional[str]:
         """Pronađi book_id u bazi ili katalogu"""
@@ -712,6 +960,20 @@ class LibraryChatbot:
             logger.warning("Pokušaj pretrage ID-a s praznim naslovom (None).")
             return None
         
+        normalized = self._normalize_title(book_title)
+        cache_key = f"bookid:{normalized}"
+        if cache_key in book_id_cache:
+            cached_value = book_id_cache[cache_key]
+
+            if cached_value == "__NOT_FOUND__":
+                self._cache_hit("book_id (negative)", cache_key)
+                return None
+
+            logger.info("CACHE HIT: book_id")
+            return cached_value
+        else:
+            self._cache_miss("book_id (negative)", cache_key)
+                
         # Pretraži katalog
         try:         
             import urllib.parse
@@ -744,10 +1006,12 @@ class LibraryChatbot:
             
             if response.status_code != 200:
                 logger.error(f"Katalog vratio status {response.status_code}")
+                book_id_cache[cache_key] = "__NOT_FOUND__"
                 return None
 
             if any(signal in html_lower for signal in blocked_signals):
                 logger.error("Blocked or bot protection detected")
+                book_id_cache[cache_key] = "__NOT_FOUND__"
                 return None
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -763,6 +1027,7 @@ class LibraryChatbot:
                     html=response.text,
                     reason="NO_BOOK_DIVS"
                 )
+                book_id_cache[cache_key] = "__NOT_FOUND__"
                 return None
             
             first_book = book_divs[0]
@@ -773,18 +1038,24 @@ class LibraryChatbot:
             )
             
             if not title_link:
+                book_id_cache[cache_key] = "__NOT_FOUND__"
                 return None
             
             href = title_link.get('href', '')
             match = re.search(r'selectedId=(\d+)', href)
             
             if match:
-                return match.group(1)
+                book_id = match.group(1)
+                book_id_cache[cache_key] = book_id
+                return book_id
+            
+            book_id_cache[cache_key] = "__NOT_FOUND__"
+            return None
         
         except Exception as e:
             logger.error(f"Catalog search error: {e}")
-        
-        return None
+            book_id_cache[cache_key] = "__NOT_FOUND__" 
+            return None
     
     async def _generate_smart_description(self, book_data: Dict) -> str:
         """Generiraj pametan opis knjige pomoću AI-ja"""
@@ -823,7 +1094,16 @@ class LibraryChatbot:
                 temperature=0.7,
                 max_tokens=300
             )
+            if hasattr(response, "usage") and response.usage:
+                self.log(
+                    "llm_usage",
+                    model=self.tool_model,
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens
+                )
             return response.choices[0].message.content.strip()
+
         
         except Exception as e:
             logger.error(f"AI description error: {e}")
@@ -921,10 +1201,70 @@ class LibraryChatbot:
         return results
     
     def _log_parser_anomaly(self, source: str, html: str, reason: str):
-        logger.warning(
-            f"PARSER_ANOMALY | source={source} | reason={reason} | html_size={len(html)}"
+        logger.warning(json.dumps({
+            "event": "parser_anomaly",
+            "source": source,
+            "reason": reason,
+            "html_size": len(html),
+            "sample": html[:200],
+            "request_id": request_id_var.get()
+        }, ensure_ascii=False))
+
+    def log(self, event: str, level="INFO", **data):
+        logger.info(json.dumps({
+            "ts": round(time.time(), 3),
+            "level": level,
+            "event": event,
+            "request_id": request_id_var.get(),
+            **data
+        }, ensure_ascii=False))
+
+    def _intent_key(self, text: str):
+        text = text.lower().strip()
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"[^a-z0-9čćžšđ\s]", "", text)
+        return hashlib.md5(text.encode()).hexdigest()
+    
+    def _normalize_title(self, title: str) -> str:
+        return re.sub(r"\s+", " ", title.lower().strip())
+    
+    def _track_tool_metrics(self, name: str, latency: float, success: bool):
+        m = metrics["tools"][name]
+
+        m["calls"] += 1
+        m["total_latency"] += latency
+        m["avg_latency"] = round(
+            m["total_latency"] / m["calls"],
+            2
         )
-        
+
+        if success:
+            m["success"] += 1
+        else:
+            m["fail"] += 1
+
+    async def tracked_tool(self, name, func, *args, **kwargs):
+        start = time.time()
+        success = True
+
+        try:
+            result = await func(*args, **kwargs)
+            return result
+
+        except Exception:
+            success = False
+            raise
+
+        finally:
+            latency = time.time() - start
+            self._track_tool_metrics(name, latency, success)
+
+    def _cache_hit(self, cache_name: str, key: str):
+        self.log("cache_hit", cache=cache_name, key=key)
+
+    def _cache_miss(self, cache_name: str, key: str):
+        self.log("cache_miss", cache=cache_name, key=key)
+     
 # Quick test
 if __name__ == "__main__":
     import asyncio
