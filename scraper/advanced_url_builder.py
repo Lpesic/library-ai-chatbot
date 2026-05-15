@@ -124,7 +124,7 @@ class AdvancedUrlBuilder:
             "sort": integer ou null
         }}
         """
-        # - Ako ne kaže period, default je 30.
+        
         response = self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},

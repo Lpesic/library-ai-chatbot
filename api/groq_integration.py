@@ -6,6 +6,9 @@ import os, json, re
 import uuid
 import time
 import logging
+import asyncio
+import random
+import httpx
 from typing import Dict, List, Optional
 from groq import AsyncGroq
 
@@ -17,11 +20,59 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+RETRYABLE_ERRORS = (
+    asyncio.TimeoutError,
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.ReadError,
+    httpx.RemoteProtocolError
+)
 class LibraryChatbot:
     """Groq-powered library chatbot"""
     
     def _new_request_id(self):
         return str(uuid.uuid4())[:8]
+    
+    async def _retry_async(
+        self,
+        func,
+        *args,
+        retries: int = 3,
+        base_delay: int = 1,
+        timeout: int = 20,
+        **kwargs
+    ):
+        """
+        Retry wrapper za async funkcije
+        """
+
+        last_error = None
+
+        for attempt in range(retries):
+            try:
+                return await asyncio.wait_for(
+                    func(*args, **kwargs),
+                    timeout=timeout
+                )
+
+            except RETRYABLE_ERRORS as e:
+                last_error = e
+
+                logger.warning(
+                    f"Retry {attempt + 1}/{retries} failed: {str(e)}"
+                )
+
+                if attempt < retries - 1:
+                    delay = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
+
+                    logger.info(f"Waiting {delay}s before retry...")
+                    await asyncio.sleep(delay)
+                
+            except Exception:
+                # Nemoj retryati programming bugove
+                raise
+
+        raise last_error
 
     def load_membership_info(self) -> str:
         """Učitaj informacije o članstvu"""
@@ -247,7 +298,8 @@ class LibraryChatbot:
                 messages=messages,
                 tools=self.tools, 
                 tool_choice="auto",  # AI odlučuje kad koristiti funkcije
-                temperature=0.0
+                temperature=0.0,
+                timeout=30
             )
             
             response_message = response.choices[0].message
@@ -267,6 +319,9 @@ class LibraryChatbot:
         except Exception as e:
             if "tool_use_failed" in str(e):
                 logger.warning("Tool failed → retry sa prisilnim pravilnim tipovima")
+
+            if "timeout" in str(e).lower():
+                return "Katalog trenutno sporije odgovara. Pokušajte ponovno za nekoliko trenutaka."
 
             if "<function=" in str(e):
                 messages.append({
@@ -385,10 +440,13 @@ class LibraryChatbot:
                 requested_limit = function_args.get("limit", 8)
                 safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
 
-                items = await scraper.fetch_and_parse(
+                items = await self._retry_async(
+                    scraper.fetch_and_parse,
                     target_url,
                     limit=safe_limit,
-                    random_selection=should_randomize
+                    random_selection=should_randomize,
+                    retries=3,
+                    timeout=25
                 )
 
                 note = ""
@@ -426,7 +484,12 @@ class LibraryChatbot:
                 from scraper.fast_availability_checker import FastAvailabilityChecker
                 checker = FastAvailabilityChecker()
 
-                availability_data = await checker.check_availability(book_title)
+                availability_data = await self._retry_async(
+                    checker.check_availability,
+                    book_title,
+                    retries=3,
+                    timeout=20
+                )
 
                 logger.info(
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
@@ -497,7 +560,12 @@ class LibraryChatbot:
                 
                 from scraper.events_scraper import EventsScraper
                 scraper = EventsScraper()
-                events = await scraper.get_events(limit=limit)
+                events = await self._retry_async(
+                    scraper.get_events,
+                    limit=limit,
+                    retries=3,
+                    timeout=20
+                )
                 
                 if not events:
                     return {
@@ -578,9 +646,8 @@ class LibraryChatbot:
                     if isinstance(recommendations[section], list):
                         all_recs.extend(recommendations[section])
 
-                # 6. FALLBACK: Ako su preporuke prazne, koristi KLASIFIKACIJE pa TAGOVE
+                # 6. FALLBACK: Ako su preporuke prazne, koristi KLASIFIKACIJE
                 source = "katalog_recommendations"
-                used_tag = None
                 used_classification = None
 
                 if not all_recs:
@@ -603,26 +670,11 @@ class LibraryChatbot:
                         # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
                         all_recs = [b for b in class_results if str(b.get('id')) != clean_id]
                         source = "classification"
-
-                if not all_recs:
-                    logger.info(f"Preporuke po klasifikacijama prazne za '{book_title}', provjeravam tagove...")
-                    tags = details.get('tags', [])
-                    
-                    if tags:
-                        used_tag = tags[0] 
-                        logger.info(f"Pokrećem pretragu za tag: {used_tag}")
-                        
-                        tag_results = await self._search_by_tag(used_tag)
-                        
-                        # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
-                        all_recs = [b for b in tag_results if str(b.get('id')) != clean_id]
-                        source = "tag_search"
-
-                    else:
-                        return {
-                            "message": f"Za knjigu '{book_title}' trenutno nema preporuka ni tagova.",
-                            "source": None
-                            }
+                else:
+                    return {
+                        "message": f"Za knjigu '{book_title}' trenutno nema preporuka.",
+                        "source": None
+                    }
 
                 logger.info(
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
@@ -632,7 +684,6 @@ class LibraryChatbot:
                     "original_book": details.get('title', book_title),
                     "recommendations": all_recs[:limit],
                     "source": source,
-                    "used_tag": used_tag,
                     "used_classification": used_classification,
                     "uputa": (
                         "Ovo su preporučene knjige. "       
@@ -681,19 +732,45 @@ class LibraryChatbot:
             
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                 response = await client.get(search_url, headers=headers)
+
+            html_lower = response.text.lower()
+
+            blocked_signals = (
+                "cf-browser-verification",
+                "captcha",
+                "just a moment",
+                "enable javascript"
+            )
             
             if response.status_code != 200:
                 logger.error(f"Katalog vratio status {response.status_code}")
                 return None
+
+            if any(signal in html_lower for signal in blocked_signals):
+                logger.error("Blocked or bot protection detected")
+                return None
             
             soup = BeautifulSoup(response.text, 'html.parser')
-            book_divs = soup.find_all('div', class_='divBibZapis')
+            book_divs = (
+                soup.find_all('div', class_='divBibZapis')
+                or soup.select('div[class*="Bib"]')
+                or soup.select('a[href*="selectedId"]')
+            )
             
             if not book_divs:
+                self._log_parser_anomaly(
+                    source="catalog_search",
+                    html=response.text,
+                    reason="NO_BOOK_DIVS"
+                )
                 return None
             
             first_book = book_divs[0]
-            title_link = first_book.find('a', class_='aNaslovLink')
+            title_link = (
+                first_book.find('a', class_='aNaslovLink')
+                or first_book.select_one('a[href*="selectedId"]')
+                or first_book.find('a')
+            )
             
             if not title_link:
                 return None
@@ -824,18 +901,7 @@ class LibraryChatbot:
             logger.info(f"Očišćen JSON artefakt: {len(text)} → {len(cleaned)} chars")
         
         return cleaned
-    
-    async def _search_by_tag(self, tag: str):
-        from scraper.advanced_url_builder import AdvancedUrlBuilder
-        from scraper.universal_scraper import UniversalScraper
-        
-        builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
-        metadata = builder.analyze_query(tag)
-        url = builder.build_url(metadata)
-        
-        scraper = UniversalScraper()
-        return await scraper.fetch_and_parse(url, limit=10, random_selection=True)
-    
+       
     async def _search_by_class(self, classification_code: str):
         from scraper.universal_scraper import UniversalScraper
         
@@ -843,13 +909,21 @@ class LibraryChatbot:
         
         scraper = UniversalScraper()
         
-        results = await scraper.fetch_and_parse(
+        results = await self._retry_async(
+            scraper.fetch_and_parse,
             url,
             limit=10,
-            random_selection=False
+            random_selection=False,
+            retries=3,
+            timeout=20
         )
         
         return results
+    
+    def _log_parser_anomaly(self, source: str, html: str, reason: str):
+        logger.warning(
+            f"PARSER_ANOMALY | source={source} | reason={reason} | html_size={len(html)}"
+        )
         
 # Quick test
 if __name__ == "__main__":
