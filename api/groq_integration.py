@@ -14,25 +14,15 @@ from cachetools import TTLCache
 from typing import Dict, List, Optional
 from groq import AsyncGroq
 from contextvars import ContextVar
-from logging.handlers import RotatingFileHandler
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-file_handler = RotatingFileHandler(
-    os.path.join(LOG_DIR, "app.log"),
-    maxBytes=5_000_000,
-    backupCount=3,
-    encoding="utf-8"
-)
-
 logging.basicConfig(
     level=logging.INFO,
-    format='%(message)s',
     handlers=[
-        file_handler,
         logging.StreamHandler()
     ]
 )
@@ -134,7 +124,10 @@ class LibraryChatbot:
                 
                 return data.get('full_text', '')
         except Exception as e:
-            print(f"Nisam uspio učitati membership_info.json: {e}")
+            self.log(
+                "membership_info_load_failed",
+                error=str(e)
+            )
             return ""
 
     def __init__(self):
@@ -324,7 +317,6 @@ class LibraryChatbot:
             messages = [{"role": "system", "content": self.system_prompt}]
             self.log("groq_request", model=self.tool_model, messages=len(messages))
 
-            logger.info(f"📨 Šaljem Groq-u {len(messages)} poruka:")
             for i, msg in enumerate(messages):
                 role = msg.get("role", "?")
                 content = str(msg.get("content", ""))[:100]
@@ -385,6 +377,15 @@ class LibraryChatbot:
                     tool_choice="auto",  # AI odlučuje kad koristiti funkcije
                     temperature=0.0,
                     timeout=30
+                )
+
+            if hasattr(response, "usage") and response.usage:
+                self.log(
+                    "llm_usage",
+                    model=self.tool_model,
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens
                 )
 
             response_message = response.choices[0].message
@@ -551,6 +552,15 @@ class LibraryChatbot:
                 temperature=0.5
             )
 
+            if hasattr(final_response, "usage") and final_response.usage:
+                self.log(
+                    "llm_usage",
+                    model=self.fast_model,
+                    prompt_tokens=final_response.usage.prompt_tokens,
+                    completion_tokens=final_response.usage.completion_tokens,
+                    total_tokens=final_response.usage.total_tokens
+                )
+
             final_text = final_response.choices[0].message.content
             final_text = self._clean_json_artifacts(final_text)
 
@@ -567,11 +577,6 @@ class LibraryChatbot:
     async def _execute_function(self, function_name: str, function_args: Dict):
         """Izvršava pozvanu funkciju"""
         func_start = time.time()
-        logger.info(json.dumps({
-            "event": "tool_start",
-            "tool": function_name,
-            "request_id": request_id_var.get()
-        }))
         self.log("tool_start", tool=function_name, args=function_args)
         success = True            
         try:
@@ -581,7 +586,7 @@ class LibraryChatbot:
                 requested_limit = function_args.get("limit", 8)    
                 safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
 
-                cache_key = f"search:{hash(query.lower().strip())}:{safe_limit}"
+                cache_key = f"search:{hashlib.md5(query.lower().strip().encode()).hexdigest()}:{safe_limit}"
                 if cache_key in search_cache:
                     self._cache_hit("search", cache_key)
                     return search_cache[cache_key]
@@ -900,7 +905,7 @@ class LibraryChatbot:
                         # Filtriraj da ne preporučiš istu knjigu (usporedba ID-eva)
                         all_recs = [b for b in class_results if str(b.get('id')) != clean_id]
                         source = "classification"
-                else:
+                if not all_recs:
                     return {
                         "message": f"Za knjigu '{book_title}' trenutno nema preporuka.",
                         "source": None
@@ -1094,14 +1099,6 @@ class LibraryChatbot:
                 temperature=0.7,
                 max_tokens=300
             )
-            if hasattr(response, "usage") and response.usage:
-                self.log(
-                    "llm_usage",
-                    model=self.tool_model,
-                    prompt_tokens=response.usage.prompt_tokens,
-                    completion_tokens=response.usage.completion_tokens,
-                    total_tokens=response.usage.total_tokens
-                )
             return response.choices[0].message.content.strip()
 
         
@@ -1211,13 +1208,19 @@ class LibraryChatbot:
         }, ensure_ascii=False))
 
     def log(self, event: str, level="INFO", **data):
-        logger.info(json.dumps({
+        payload = {
             "ts": round(time.time(), 3),
             "level": level,
             "event": event,
-            "request_id": request_id_var.get(),
-            **data
-        }, ensure_ascii=False))
+            "request_id": request_id_var.get()
+        }
+
+        payload.update(data)
+
+        logger.log(
+            getattr(logging, level.upper(), logging.INFO),
+            json.dumps(payload, ensure_ascii=False)
+        )
 
     def _intent_key(self, text: str):
         text = text.lower().strip()

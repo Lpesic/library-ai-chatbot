@@ -239,6 +239,26 @@
         }
       }
 
+      .loading-text {
+        font-size: 13px;
+        color: #9aa0a6;
+        animation: pulseText 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulseText {
+        0% {
+          color: #b0b0b0;
+        }
+
+        50% {
+          color: #6e6e6e;
+        }
+
+        100% {
+          color: #b0b0b0;
+        }
+      }
+
       .quick-questions {
         padding: 10px 15px;
         background: #f7f7f7;
@@ -609,18 +629,34 @@
         indicator.className = "message bot";
         indicator.id = "typing-indicator";
         indicator.innerHTML = `
-                <div class="typing-indicator active">
+                <div id="typing-content" class="typing-indicator active">
                     <span></span><span></span><span></span>
                 </div>
             `;
 
         chatMessages.appendChild(indicator);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Nakon 3 sekunde promijeni indikator u tekst
+        indicator.loadingTimeout = setTimeout(() => {
+          const typingContent = document.getElementById("typing-content");
+          if (typingContent) {
+            typingContent.innerHTML = ""; // očisti tockice
+            typingContent.textContent = "Razmišljam...";
+            typingContent.style.cssText =
+              "padding: 10px 14px; font-size: 13px; color: #9aa0a6; animation: pulseText 1.5s ease-in-out infinite;";
+          }
+        }, 3000);
       }
 
       function hideTypingIndicator() {
         const indicator = document.getElementById("typing-indicator");
+
         if (indicator) {
+          if (indicator.loadingTimeout) {
+            clearTimeout(indicator.loadingTimeout);
+          }
+
           indicator.remove();
         }
       }
