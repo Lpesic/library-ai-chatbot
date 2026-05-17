@@ -572,6 +572,7 @@
       const chatInput = document.getElementById("chatInput");
       const sendBtn = document.getElementById("sendBtn");
       const notificationBadge = document.getElementById("notificationBadge");
+      const MAX_INPUT_LENGTH = 2000;
 
       let isGenerating = false;
       let abortController = null;
@@ -616,7 +617,6 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         // Show notification if chat is closed
-
         if (!isOpen && !isUser) {
           notificationBadge.classList.add("active");
         }
@@ -738,6 +738,13 @@
             signal: abortController.signal,
           });
 
+          if (response.status === 400) {
+            const data = await response.json();
+            hideTypingIndicator();
+            addMessage(data.detail + " Molim pokušaj ponovo.");
+            return;
+          }
+
           if (!response.ok) {
             throw new Error(`Server vratio status: ${response.status}`);
           }
@@ -855,6 +862,23 @@
       quickQuestions.addEventListener("wheel", (evt) => {
         evt.preventDefault();
         quickQuestions.scrollLeft += evt.deltaY;
+      });
+
+      chatInput.addEventListener("paste", (e) => {
+        e.preventDefault();
+
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+
+        const current = chatInput.value;
+        const newValue = (current + text).slice(0, MAX_INPUT_LENGTH);
+
+        chatInput.value = newValue;
+      });
+
+      chatInput.addEventListener("input", () => {
+        if (chatInput.value.length > MAX_INPUT_LENGTH) {
+          chatInput.value = chatInput.value.slice(0, MAX_INPUT_LENGTH);
+        }
       });
     </script>
   </body>

@@ -16,15 +16,20 @@ import os
 import logging
 import re
 import httpx
+import asyncio
+import uuid
+import time
 from bs4 import BeautifulSoup
 from contextlib import asynccontextmanager
 from pathlib import Path
 from api.groq_integration import LibraryChatbot
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,8 +41,17 @@ book_detail_parser = None
 async def lifespan(app: FastAPI):
     # STARTUP
     logger.info("Pokrećem aplikaciju...")
+    app.state.started_at = time.time()
 
-    app.state.http_client = httpx.AsyncClient(timeout=30.0)
+    limits = httpx.Limits(
+        max_connections=20,
+        max_keepalive_connections=10
+    )
+
+    app.state.http_client = httpx.AsyncClient(
+        timeout=30.0,
+        limits=limits
+    )
 
     groq_key = os.getenv('GROQ_API_KEY')
     app.state.groq_enabled = bool(groq_key)
@@ -77,6 +91,37 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+# GZIP - komprimacija većih odgovora
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# REQUEST ID MIDDLEWARE
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = str(uuid.uuid4())[:8]
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+
+    response.headers["X-Request-ID"] = request_id
+
+    return response
+
+# SECURITY HEADERS MIDDLEWARE
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    return response
+
 # CORS - omogućava frontendima da pristupa API-ju
 app.add_middleware(
     CORSMiddleware,
@@ -85,6 +130,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+#SLOWAPI
+app.add_middleware(SlowAPIMiddleware)
 
 # Pydantic modeli za request/response
 class ChatRequest(BaseModel):
@@ -121,13 +169,15 @@ def get_availability_checker(request: Request):
 async def search_catalog_for_book(query: str, request: Request) -> Dict:
     """
     Pretraži katalog knjižnice za knjigu
-    Koristi se kad knjiga nije u lokalnoj bazi
     """
     try:
         scraper_api_key = os.getenv('SCRAPER_API_KEY')
         if not scraper_api_key:
             logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
-            return None
+            return {
+                "error": True,
+                "message": "Katalog trenutno nije dostupan"
+            }
         
         import urllib.parse
         encoded_query = urllib.parse.quote(query, safe='')
@@ -151,7 +201,10 @@ async def search_catalog_for_book(query: str, request: Request) -> Dict:
         
         if response.status_code != 200:
             logger.error(f"ScraperAPI error: {response.status_code}")
-            return None
+            return {
+                "error": True,
+                "message": "Katalog trenutno nije dostupan"
+            }
         
         logger.info(f"Response: {len(response.text)} bytes")
 
@@ -162,14 +215,20 @@ async def search_catalog_for_book(query: str, request: Request) -> Dict:
 
         if not book_divs:
             logger.warning("Nema rezultata pretrage")
-            return None
+            return {
+                "error": True,
+                "message": "Katalog trenutno nije dostupan"
+            }
         
         first_book = book_divs[0]
         title_link = first_book.find('a', class_='aNaslovLink')
 
         if not title_link:
             logger.warning("Nema title link-a")
-            return None
+            return {
+                "error": True,
+                "message": "Katalog trenutno nije dostupan"
+            }
         
         title = title_link.get_text(strip=True)
         href = title_link.get('href', '')
@@ -177,8 +236,11 @@ async def search_catalog_for_book(query: str, request: Request) -> Dict:
 
         if not match:
             logger.warning(f"selectedId nije pronađen u: {href}")
-            return None
-        
+            return {
+                "error": True,
+                "message": "Katalog trenutno nije dostupan"
+            }
+                    
         book_id = match.group(1)
 
         author = "Nepoznat autor"
@@ -196,33 +258,77 @@ async def search_catalog_for_book(query: str, request: Request) -> Dict:
     
     except httpx.TimeoutException:
         logger.error("Timeout pri pretraživanju kataloga")
-        return None
+        return {
+            "error": True,
+            "message": "Katalog trenutno nije dostupan"
+        }
     
     except Exception as e:
         logger.error(f"Greška pri pretraživanju kataloga: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        return {
+            "error": True,
+            "message": "Katalog trenutno nije dostupan"
+        }
 
 # ENDPOINTS 
 
 @app.post("/api/chat", response_model=ChatResponse)
+@limiter.limit("10/minute")
 async def chat_ai(
-    request: ChatRequest, 
+    request: Request,
+    body: ChatRequest,
     chatbot: LibraryChatbot = Depends(get_chatbot)
     ):
     """Groq-powered chat endpoint (NAJBRŽI!)"""
+
+    logger.info(f"[{request.state.request_id}] Incoming request")
+
+    # ANTI-SPAM VALIDACIJA
+    message = body.message
+    logger.info(f"[{request.state.request_id}] Message length: {len(message)}")
+
+    if not message or not message.strip():
+        logger.warning(f"[{request.state.request_id}] EMPTY MESSAGE")
+        raise HTTPException(status_code=400, detail="Ups! Poruka je prazna.")
+
+    if len(message) > 2000:
+        logger.warning(f"[{request.state.request_id}] MESSAGE TOO LONG: {len(message)}")
+        raise HTTPException(status_code=400, detail="Ups! Poruka je preduga.")
+
+    if len(message.strip()) < 2:
+        logger.warning(f"[{request.state.request_id}] MESSAGE TOO SHORT")
+        raise HTTPException(status_code=400, detail="Ups! Poruka je prekratka.")
+    
+    if len(re.sub(r"\W", "", message)) == 0:
+        logger.warning(f"[{request.state.request_id}] INVALID SYMBOL-ONLY MESSAGE")
+        raise HTTPException(400, "Ups! Ne mogu to razumijeti.")
   
     try:
-        history = (request.history or [])[-10:]
-        response = await chatbot.chat(
-            user_message=request.message,
-            conversation_history=history
-            )
+        history = (body.history or [])[-10:]
+        response = await asyncio.wait_for(
+            chatbot.chat(
+                user_message=body.message,
+                conversation_history=history
+            ),
+            timeout=40
+        )
+        logger.info(f"[{request.state.request_id}] Response generated")
+
         return {"response": response}
     
+    except asyncio.TimeoutError:
+        logger.error(f"[{request.state.request_id}] Request timeout")
+
+        raise HTTPException(
+            status_code=504,
+            detail="AI odgovor traje predugo."
+        )
+    
     except Exception as e:
-        logger.error(f"AI chat error: {e}", exc_info=True)
+        logger.error(
+            f"[{request.state.request_id}] AI chat error: {e}",
+            exc_info=True
+        )
         raise HTTPException(
             status_code=500, 
             detail="Došlo je do greške pri obradi zahtjeva."
@@ -232,6 +338,7 @@ async def chat_ai(
 async def health(request: Request):
     return {
         "status": "ok",
+        "uptime_seconds": round(time.time() - request.app.state.started_at),
         "ai": getattr(request.app.state, "groq_enabled", False),
         "http_client": request.app.state.http_client is not None
     }
