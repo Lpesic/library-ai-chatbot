@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 request_id_var = ContextVar("request_id", default=None)
 
 # CACHE LAYER
-search_cache = TTLCache(maxsize=1000, ttl=300)  # 5 min
+search_cache = TTLCache(maxsize=100, ttl=300)  # 5 min
 description_cache = TTLCache(maxsize=500, ttl=3600)  # 1h
-availability_cache = TTLCache(maxsize=2000, ttl=60)  # 1 min
+availability_cache = TTLCache(maxsize=200, ttl=60)  # 1 min
 recommendation_cache = TTLCache(maxsize=500, ttl=600)  # 10 min
 events_cache = TTLCache(maxsize=200, ttl=600)          # 10 min
 routing_cache = TTLCache(maxsize=2000, ttl=600)
@@ -614,17 +614,13 @@ class LibraryChatbot:
                 requested_limit = function_args.get("limit", 8)    
                 safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
 
-                cache_key = f"search:{hashlib.md5(query.lower().strip().encode()).hexdigest()}:{safe_limit}"
-                if cache_key in search_cache:
-                    self._cache_hit("search", cache_key)
-                    return search_cache[cache_key]
-                else:
-                    self._cache_miss("search", cache_key)
+                
                 
                 logger.info(f"Prosljeđujem '{query}' u AdvancedUrlBuilder")
 
                 from scraper.advanced_url_builder import AdvancedUrlBuilder
                 url_builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
+
                 metadata = url_builder.analyze_query(query)
                 target_url = url_builder.build_url(metadata)
 
@@ -632,6 +628,16 @@ class LibraryChatbot:
 
                 is_new_or_top = metadata.get('sort') == 3 or metadata.get('top') is not None
                 should_randomize = not is_new_or_top
+
+                cache_key = f"search:{hashlib.md5(query.lower().strip().encode()).hexdigest()}:{safe_limit}"
+
+                # Cache samo za novitete i top liste
+                if is_new_or_top:
+                    if cache_key in search_cache:
+                        self._cache_hit("search", cache_key)
+                        return search_cache[cache_key]
+                    else:
+                        self._cache_miss("search", cache_key)
 
                 from scraper.universal_scraper import UniversalScraper
                 scraper = UniversalScraper()
@@ -657,14 +663,15 @@ class LibraryChatbot:
                 "uputa": (
                     "Ovo su rezultati pretrage iz kataloga. "
                     "NIKADA nemoj generirati nove naslove, koristi isključivo rezultate iz liste 'items'. "
-                    "Prikaži ih kao preglednu listu (Naslov - Autor). "
+                    "Prikaži ih kao preglednu listu (Naslov - Autor) nakon što kažeš zašto predlažeš npr. evo knjiga koje ste tražili: . "
                     "VAŽNO: Ovi podaci NE SADRŽE informaciju o dostupnosti. "
                     "Zato NIKADA nemoj nagađati jesu li knjige dostupne ili posuđene. "
                     "Navedi što je pronađeno, a možeš i ponuditi korisniku da provjeriš dostupnost za konkretne rezultate ili ponuditi dati opis."
                     )
                 }
                 
-                search_cache[cache_key] = result
+                if is_new_or_top:
+                    search_cache[cache_key] = result
                 
                 latency = time.time() - func_start
                 self._track_tool_metrics(function_name, latency, success)
@@ -727,7 +734,7 @@ class LibraryChatbot:
                         "Ako poruka kaže da knjiga NIJE PRONAĐENA, to NE znači da je posuđena nego da upit nije dobar. "
                         "U tom slučaju zamoli korisnika da pokuša s točnijim ili kraćim naslovom. "
                         "Koristi ✅ za dostupno i ❌ za posuđeno samo kada knjiga postoji. "
-                        "Obavezno navedi lokacije dostupnosti (Marinići ili Viškovo). "
+                        "Ako pronađeš naslove, obavezno navedi lokacije dostupnosti (Marinići ili Viškovo). "
                         "Ako postoje slični naslovi koji su dostupni, predloži ih kao alternativu. "
                     )
                 }

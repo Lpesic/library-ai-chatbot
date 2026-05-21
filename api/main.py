@@ -25,7 +25,6 @@ from pathlib import Path
 from api.groq_integration import LibraryChatbot
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -34,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-availability_checker = None
 book_detail_parser = None
 
 @asynccontextmanager
@@ -64,15 +62,12 @@ async def lifespan(app: FastAPI):
         logger.warning("AI chatbot nije aktivan")
 
     try:
-        from scraper.availability_checker import ScraperAPIChecker
         from scraper.book_detail_parser import BookDetailParser
 
-        app.state.availability_checker = ScraperAPIChecker()
         app.state.book_detail_parser = BookDetailParser()
 
     except ImportError as e:
         logger.error(f"Greška pri inicijalizaciji scrapera: {e}")
-        app.state.availability_checker = None
         app.state.book_detail_parser = None
 
         # Fallback za lokalno testiranje ako struktura foldera varira
@@ -91,7 +86,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -162,113 +156,6 @@ def get_chatbot(request: Request) -> LibraryChatbot:
 
 def get_http_client(request: Request) -> httpx.AsyncClient:
     return request.app.state.http_client
-
-def get_availability_checker(request: Request):
-    return request.app.state.availability_checker
-
-async def search_catalog_for_book(query: str, request: Request) -> Dict:
-    """
-    Pretraži katalog knjižnice za knjigu
-    """
-    try:
-        scraper_api_key = os.getenv('SCRAPER_API_KEY')
-        if not scraper_api_key:
-            logger.warning("SCRAPER_API_KEY nije postavljen - ne mogu pretraživati katalog")
-            return {
-                "error": True,
-                "message": "Katalog trenutno nije dostupan"
-            }
-        
-        import urllib.parse
-        encoded_query = urllib.parse.quote(query, safe='')
-               
-        # URL za pretraživanje kataloga
-        search_url = f"https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?currentPage=1&searchById=1&sort=0&age=0&spid0=1&spv0={encoded_query}"
-        
-        params = {
-            'api_key': scraper_api_key,
-            'url': search_url,
-            'country_code': 'hr',
-            'render': 'false',
-            'premium': 'false'
-        }
-              
-        client = request.app.state.http_client
-        response = await client.get(
-            "http://api.scraperapi.com/",
-            params=params
-        )
-        
-        if response.status_code != 200:
-            logger.error(f"ScraperAPI error: {response.status_code}")
-            return {
-                "error": True,
-                "message": "Katalog trenutno nije dostupan"
-            }
-        
-        logger.info(f"Response: {len(response.text)} bytes")
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        book_divs = soup.find_all('div', class_='divBibZapis')
-        logger.info(f"Pronađeno {len(book_divs)} knjiga")
-
-        if not book_divs:
-            logger.warning("Nema rezultata pretrage")
-            return {
-                "error": True,
-                "message": "Katalog trenutno nije dostupan"
-            }
-        
-        first_book = book_divs[0]
-        title_link = first_book.find('a', class_='aNaslovLink')
-
-        if not title_link:
-            logger.warning("Nema title link-a")
-            return {
-                "error": True,
-                "message": "Katalog trenutno nije dostupan"
-            }
-        
-        title = title_link.get_text(strip=True)
-        href = title_link.get('href', '')
-        match = re.search(r'selectedId=(\d+)', href)
-
-        if not match:
-            logger.warning(f"selectedId nije pronađen u: {href}")
-            return {
-                "error": True,
-                "message": "Katalog trenutno nije dostupan"
-            }
-                    
-        book_id = match.group(1)
-
-        author = "Nepoznat autor"
-        author_link = first_book.find('a', class_='aAutor')
-        if author_link:
-            author = author_link.get_text(strip=True)
-
-        logger.info(f"✓ Pronađeno: {title} - {author} (ID: {book_id})")
-                
-        return {
-            'book_id': book_id,
-            'title': title,
-            'author': author
-        }
-    
-    except httpx.TimeoutException:
-        logger.error("Timeout pri pretraživanju kataloga")
-        return {
-            "error": True,
-            "message": "Katalog trenutno nije dostupan"
-        }
-    
-    except Exception as e:
-        logger.error(f"Greška pri pretraživanju kataloga: {e}")
-        return {
-            "error": True,
-            "message": "Katalog trenutno nije dostupan"
-        }
 
 # ENDPOINTS 
 
