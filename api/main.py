@@ -19,7 +19,6 @@ import httpx
 import asyncio
 import uuid
 import time
-from bs4 import BeautifulSoup
 from contextlib import asynccontextmanager
 from pathlib import Path
 from api.groq_integration import LibraryChatbot
