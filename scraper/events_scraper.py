@@ -15,7 +15,7 @@ class EventsScraper:
 
     async def get_events(self, limit: int = 5) -> List[Dict]:
         try:
-            async with httpx.AsyncClient(headers=self.headers, follow_redirects=True, timeout=15.0) as client:
+            async with httpx.AsyncClient(headers=self.headers, follow_redirects=True, timeout=15.0, verify=False) as client:
                 response = await client.get(self.url)
                 
                 if response.status_code != 200:

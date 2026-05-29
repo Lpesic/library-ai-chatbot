@@ -19,7 +19,7 @@ def fetch_udk_categories():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     
-    response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers)
+    response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers, verify=False)
     print(f"Status: {response.status_code}")
     
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -152,7 +152,7 @@ def fetch_languages():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     
-    response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers)
+    response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers, verify=False)
     
     soup = BeautifulSoup(response.text, 'html.parser')
     

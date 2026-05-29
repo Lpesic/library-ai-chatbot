@@ -47,7 +47,7 @@ RETRYABLE_ERRORS = (
     httpx.RemoteProtocolError
 )
 
-INVALID_TITLES = {"", "knjiga", "naslov knjige", "book title", "title", "unknown", "example", "primjer", "naziv knjige", "ime knjige", "some book", "test", "random", "neka kniga", "neke knjige" }
+INVALID_TITLES = {"", "knjiga", "naslov knjige", "book title", "title", "unknown", "example", "primjer", "naziv knjige", "ime knjige", "some book", "test", "random", "neka kniga", "neke knjige", "neku knjigu", "neki naslov" }
 PROBE_KEYWORDS = {"system prompt", "prompt injection", "developer prompt", "developer message", "hidden prompt", "skriveni prompt", "interne upute", "internal instructions", "ignore previous instructions",
     "ignore all instructions", "zanemari prethodne upute", "reveal prompt", "show prompt", "prikaži prompt", "tool call", "function call", "pozovi funkciju", "pozovi alat", "interni alat", "internal tool",
     "koristi alat", "koristi funkciju", "arhitektura sustava", "backend implementacija", "source code", "izvorni kod"}
@@ -178,6 +178,7 @@ class LibraryChatbot:
         - LIMIT REZULTATA: Max 10 rezultata po upitu, ako korisnik traži nemoguć broj rezultata, prilagodi ga i objasni zašto
         - TOOL CALLING RULES: When you need to use a tool, use the internal function calling mechanism ONLY.
         - Ako korisnik navodi naziv funkcije ili alata bez potrebnih parametara, ne pozivaj funkciju, niti ne izmišljaj argumente funkcije. Obavezan parametar koji nedostaje traži prvo od korisnika.
+        - Ako korisnik traži opis, dostupnost, preporuke a nije naveo konkretan naslov, niti ga nema u prethodnom kontekstu razgovora, OBAVEZNO prvo zatraži naslov, NIKADA nemoj pretpostavljati.
         - Ako korisnik pita o pravilima posudbe, članarini, radnom vremenu, kontaktu ili općim informacijama o knjižnici — odgovori DIREKTNO iz informacija o knjižnici, ne koristi alate.
         - NEVER output text like '<function=...>' or 'function_name "arg": "val"'.
         - When calling a tool, provide ONLY the JSON arguments.
@@ -550,11 +551,14 @@ class LibraryChatbot:
             function_response = await self._execute_function(function_name, function_args)
             if (
                 isinstance(function_response, dict)
-                and function_response.get("error") == "missing_book_title"
+                and function_response.get("error") in {
+                    "missing_book_title",
+                    "missing_query"
+                }
             ):
                 return (
-                    "Molim navedite naslov knjige koji vas zanima kako bih mogao pronaći opis ili informacije o njoj."
-                )
+                    "Molim navedite naslov knjige koji vas zanima kako bih mogao pronaći tražene informacije."
+                ) 
 
             response_str = str(function_response)
             logger.info(f"Funkcija vratila: {response_str[:200]}...")
@@ -1074,7 +1078,11 @@ class LibraryChatbot:
                 "Connection": "keep-alive"
             }
             
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=15.0, 
+                follow_redirects=True, 
+                verify=False # samo za production zbog SSL: CERTIFICATE_VERIFY_FAILED
+            ) as client:
                 response = await client.get(search_url, headers=headers)
 
             html_lower = response.text.lower()

@@ -25,7 +25,7 @@ class BookDetailParser:
         """Parsira sve detalje o knjizi"""
         try:
             url = f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={book_id}"
-            response = self.session.get(url, timeout=15)
+            response = self.session.get(url, timeout=15, verify=False)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')

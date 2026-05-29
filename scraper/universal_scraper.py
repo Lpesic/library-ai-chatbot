@@ -27,7 +27,8 @@ class UniversalScraper:
             async with httpx.AsyncClient(
                 timeout=45.0, 
                 headers=headers, 
-                follow_redirects=True
+                follow_redirects=True,
+                verify=False
                 ) as client:
                 first_page_url = f"{url}&currentPage=1"
 
