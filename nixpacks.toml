@@ -4,7 +4,6 @@ providers = ["python"]
 nixPkgs = [
   "python311",  
   "gcc",
-  "sqlite",
   "pkg-config"
 ]
 

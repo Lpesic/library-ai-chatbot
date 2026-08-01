@@ -26,7 +26,7 @@ class FastAvailabilityChecker:
         url_all = f"{self.base_url}?searchById=1&spid0=1&spv0={encoded_title}"
 
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=10.0) as client:
+            async with httpx.AsyncClient(headers=self.headers, timeout=10.0, verify=False) as client:
 
                 res_all = await client.get(url_all)
                 soup_all = BeautifulSoup(res_all.text, 'html.parser')

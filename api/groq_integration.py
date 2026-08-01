@@ -596,11 +596,12 @@ class LibraryChatbot:
         
         # Pozovi Groq ponovno sa rezultatima
         try:
-            final_response = await self.client.chat.completions.create(
-                model=self.fast_model,
-                messages=messages,
-                temperature=0.5
-            )
+            async with self.semaphore:
+                final_response = await self.client.chat.completions.create(
+                    model=self.fast_model,
+                    messages=messages,
+                    temperature=0.5
+                )
 
             if hasattr(final_response, "usage") and final_response.usage:
                 self.log(
@@ -1178,12 +1179,13 @@ class LibraryChatbot:
             {original_desc}"""
         
         try:
-            response = await self.client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.fast_model,
-                temperature=0.7,
-                max_tokens=300
-            )
+            async with self.semaphore:
+                response = await self.client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.fast_model,
+                    temperature=0.7,
+                    max_tokens=300
+                )
             return response.choices[0].message.content.strip()
 
         
