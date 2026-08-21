@@ -144,8 +144,8 @@ class LibraryChatbot:
 
         self.client = AsyncGroq(api_key=api_key)
         
-        self.tool_model = "llama-3.3-70b-versatile"
-        self.fast_model = "llama-3.1-8b-instant"
+        self.tool_model = "openai/gpt-oss-120b"
+        self.fast_model = "qwen/qwen3.6-27b"
 
         self.semaphore = asyncio.Semaphore(3)
         

@@ -4,28 +4,21 @@ export const options = {
   scenarios: {
     chatbot: {
       executor: "per-vu-iterations",
-      vus: 10,
+      vus: 4,
       iterations: 1,
-      maxDuration: "1m",
     },
   },
 };
 
 const questions = [
-  "Preporuči knjigu",
   "Koje je radno vrijeme?",
-  "Ima li Harry Potter?",
-  "Koja su događanja?",
   "Kako se učlaniti?",
-  "Tko je napisao Dinu?",
-  "Preporuči krimić",
-  "Što je novo u knjižnici?",
-  "Ima li knjiga Atomic Habits?",
+  "Koja su događanja?",
   "Koliko knjiga mogu posuditi?",
 ];
 
 export default function () {
-  const question = questions[__VU % questions.length];
+  const question = questions[__VU - 1];
 
   http.post(
     "http://localhost:8000/api/chat",
