@@ -1,5 +1,5 @@
 """
-Groq Integration - NAJBRŽA AI integracija
+Sambanova - AI integracija
 """
 import os, json, re
 import uuid
@@ -13,7 +13,11 @@ from collections import defaultdict
 from cachetools import TTLCache
 from typing import Dict, List, Optional
 from groq import AsyncGroq
+from openai import AsyncOpenAI
 from contextvars import ContextVar
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -136,16 +140,19 @@ class LibraryChatbot:
             return ""
 
     def __init__(self):
-        api_key = os.getenv('GROQ_API_KEY')
+        api_key = os.getenv('SAMBANOVA_KEY')
         if not api_key:
-            logger.error("GROQ_API_KEY nije postavljen u .env!")
+            logger.error("SAMBANOVA_KEY nije postavljen u .env!")
             self.client = None
             return
 
-        self.client = AsyncGroq(api_key=api_key)
-        
-        self.tool_model = "openai/gpt-oss-120b"
-        self.fast_model = "qwen/qwen3.6-27b"
+        self.client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.sambanova.ai/v1",
+        )
+
+        self.tool_model = "Meta-Llama-3.3-70B-Instruct"
+        self.fast_model = "Meta-Llama-3.3-70B-Instruct"
 
         self.semaphore = asyncio.Semaphore(3)
         
@@ -326,14 +333,14 @@ class LibraryChatbot:
         )
 
         if not self.client:
-            return "Groq API nije konfiguriran. Postavi GROQ_API_KEY u .env datoteci."
+            return "Sambanova API nije konfiguriran. Postavi SAMBANOVA_KEY u .env datoteci."
         
         if self._is_system_probe(user_message):
             return "Mogu ti pomoći s pretraživanjem kataloga knjiga, provjerom dostupnosti, opisima knjiga i informacijama o knjižnici. Što te zanima?"
         
         try:  
             messages = [{"role": "system", "content": self.system_prompt}]
-            self.log("groq_request", model=self.tool_model, messages=len(messages))
+            self.log("sambanova_request", model=self.tool_model, messages=len(messages))
 
             for i, msg in enumerate(messages):
                 role = msg.get("role", "?")
@@ -401,11 +408,11 @@ class LibraryChatbot:
                 response = await self.client.chat.completions.create(
                     model=self.tool_model,
                     messages=messages,
-                    tools=self.tools, 
-                    tool_choice="auto",  # AI odlučuje kad koristiti funkcije
-                    temperature=0.0,
-                    timeout=30
-                )
+                    temperature=0.2,
+                    tools=self.tools,
+                    tool_choice="auto",
+                    timeout=10
+                    )
 
             if hasattr(response, "usage") and response.usage:
                 self.log(
@@ -638,14 +645,12 @@ class LibraryChatbot:
                 requested_limit = function_args.get("limit", 8)    
                 safe_limit = self._validate_limit(requested_limit, default=5, max_limit=10)
 
-                
-                
                 logger.info(f"Prosljeđujem '{query}' u AdvancedUrlBuilder")
 
                 from scraper.advanced_url_builder import AdvancedUrlBuilder
-                url_builder = AdvancedUrlBuilder(api_key=os.getenv('GROQ_API_KEY'))
+                url_builder = AdvancedUrlBuilder(api_key=os.getenv('SAMBANOVA_KEY'))
 
-                metadata = url_builder.analyze_query(query)
+                metadata = await url_builder.analyze_query(query)
                 target_url = url_builder.build_url(metadata)
 
                 logger.info(f"URL: {target_url}")

@@ -1,12 +1,16 @@
+import asyncio
 import json
 import urllib.parse
 import os
-from groq import Groq
 from typing import Dict, Any
+from openai import AsyncOpenAI
 
 class AdvancedUrlBuilder:
     def __init__(self, api_key: str):
-        self.client = Groq(api_key=api_key)
+        self.client = AsyncOpenAI(
+            api_key=api_key, 
+            base_url="https://api.sambanova.ai/v1"
+        )
         self.base_url = "https://katalog.halubajska-zora.hr/pagesResults/rezultati.aspx?&searchById=1"
         
         # Učitavanje specifičnih JSON-ova
@@ -48,8 +52,8 @@ class AdvancedUrlBuilder:
             print(f"Greška pri učitavanju {path}: {e}")
             return {}
 
-    def analyze_query(self, user_query: str) -> Dict[str, Any]:
-        """Groq ekstrakcija keyworda i mapa prema tvojim JSON ključevima"""
+    async def analyze_query(self, user_query: str) -> Dict[str, Any]:
+        """Sambanova ekstrakcija keyworda i mapa prema JSON ključevima"""
         
         # Priprema opcija za AI da zna što točno smije odabrati
         lang_list = list(self.languages.keys())
@@ -125,12 +129,12 @@ class AdvancedUrlBuilder:
         }}
         """
         
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query}
             ],
-            model="qwen/qwen3.6-27b",
+            model="Meta-Llama-3.3-70B-Instruct",
             temperature=0,
             response_format={"type": "json_object"}
         )
@@ -242,11 +246,11 @@ class AdvancedUrlBuilder:
 
         return f"{self.base_url}&{'&'.join(params)}"
 
-def test_console():
+async def test_console():
     """Konzolni test za provjeru rada"""
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("SAMBANOVA_KEY")
     if not api_key:
-        print("Postavi GROQ_API_KEY u env varijable!")
+        print("Postavi SAMBANOVA_KEY u env varijable!")
         return
 
     builder = AdvancedUrlBuilder(api_key)
@@ -259,7 +263,7 @@ def test_console():
         
         try:
             # 1. Analiza
-            metadata = builder.analyze_query(query)
+            metadata = await builder.analyze_query(query)
             
             # 2. Ispis shvaćenog
             print("\n" + "="*40)
@@ -277,4 +281,4 @@ def test_console():
             print(f"Greška: {e}")
 
 if __name__ == "__main__":
-    test_console()
+    asyncio.run(test_console())

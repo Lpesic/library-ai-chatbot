@@ -50,10 +50,10 @@ async def lifespan(app: FastAPI):
         limits=limits
     )
 
-    groq_key = os.getenv('GROQ_API_KEY')
-    app.state.groq_enabled = bool(groq_key)
+    sambanova_key = os.getenv('SAMBANOVA_KEY')
+    app.state.sambanova_enabled = bool(sambanova_key)
 
-    if app.state.groq_enabled: 
+    if app.state.sambanova_enabled: 
         app.state.chatbot = LibraryChatbot()
         logger.info("AI chatbot spreman")
     else:
@@ -225,7 +225,7 @@ async def health(request: Request):
     return {
         "status": "ok",
         "uptime_seconds": round(time.time() - request.app.state.started_at),
-        "ai": getattr(request.app.state, "groq_enabled", False),
+        "ai": getattr(request.app.state, "sambanova_enabled", False),
         "http_client": request.app.state.http_client is not None
     }
 
