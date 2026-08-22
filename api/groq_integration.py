@@ -207,16 +207,18 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "check_availability",
+                    "strict": True,
                     "description": "Provjeri dostupnost SAMO JEDNE knjige za posudbu i na kojim lokacijama. Koristi SAMO kad korisnik pita o dostupnosti, statusu ili je li knjiga posuđena",
                     "parameters": {
                         "type": "object",
+                        "additionalProperties": False,
                         "properties": {
                             "book_title": {
                                 "type": "string",
                                 "description": "Naslov knjige za koju korisnik želi provjeriti dostupnost. Nemoj pozivati ako ne znaš naslov knjige."
                             }
                         },
-                        "required": ["book_title"]
+                        "required": ["book_title"],
                     }
                 }
             },
@@ -225,9 +227,11 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "get_book_description",
+                    "strict": True,
                     "description": "Dohvati opis/anotaciju knjige. Koristi kad korisnik pita 'o čemu se radi', 'opis knjige', 'radnja', 'tema knjige', 'sažetak'",
                     "parameters": {
                         "type": "object",
+                        "additionalProperties": False,
                         "properties": {
                             "book_title": {
                                 "type": "string",
@@ -249,9 +253,11 @@ class LibraryChatbot:
             "type": "function",
             "function": {
                 "name": "search_catalog",
+                "strict": True,
                 "description": "Pretražuje samo bazu fizičkih knjiga ili građe: pretraga po naslovu, temi, autoru, jeziku, vrsti građe, godini, novitetima, najčitanijima ili preporukama. Ovdje NEMA informacija o radionicama, vijestima ili događajima.",
                 "parameters": {
                     "type": "object",
+                    "additionalProperties": False,
                     "properties": {
                         "query": {
                             "type": "string", 
@@ -274,15 +280,18 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "get_library_events",
+                    "strict": True,
                     "description": "Dohvati informacije kada korisnik pita o događajima, radionicama, pričaonicama, novostima ili aktivnostima u knjižnici.",
                     "parameters": {
                         "type": "object",
+                        "additionalProperties": False,
                         "properties": {
                             "limit": {
                                 "type": ["integer", "string"],
                                 "description": "Broj događaja (npr. '3').",
                             }
-                        }
+                        },
+                        "required": []
                     }
                 }
             },
@@ -291,6 +300,7 @@ class LibraryChatbot:
                 "type": "function",
                 "function": {
                     "name": "get_similar_books",
+                    "strict": True,
                     "description": "Koristi SAMO kad korisnik traži slične knjige, ili 'nešto kao X'.",
                     "parameters": {
                         "type": "object",
@@ -341,16 +351,6 @@ class LibraryChatbot:
         try:  
             messages = [{"role": "system", "content": self.system_prompt}]
             self.log("sambanova_request", model=self.tool_model, messages=len(messages))
-
-            for i, msg in enumerate(messages):
-                role = msg.get("role", "?")
-                content = str(msg.get("content", ""))[:100]
-                has_tools = "tool_calls" in msg
-                
-                logger.info(
-                    f"  [{i}] {role}: {content}... "
-                    f"(has_tool_calls: {has_tools})"
-                )    
 
             if conversation_history:
                 for msg in conversation_history[-4:]:
@@ -424,6 +424,12 @@ class LibraryChatbot:
                 )
 
             response_message = response.choices[0].message
+
+            self.log(
+                "model_decision",
+                used_tool=bool(response_message.tool_calls),
+                tool_name=response_message.tool_calls[0].function.name if response_message.tool_calls else None
+            )
             
             # Provjeri ima li function calls
             if response_message.tool_calls:
@@ -894,16 +900,27 @@ class LibraryChatbot:
                 logger.info(
                     f"TOOL_DONE: {function_name} in {time.time() - func_start:.2f}s"
                 )
-                
-                result = {
-                    "data": result_text.strip(),
-                    "uputa": (
-                        "Predstavi ove događaje korisniku na ljubazan način. "
-                        "Ako ih ima više, spomeni samo najvažnije detalje. "
-                        "Ako korisnik traži specifičan događaj ili detalje, opiši ga."
-                        "Obavezno zadrži linkove i datume onako kako su navedeni."
-                    )
-                }
+                if len(events) == 1:
+                    result = {
+                        "data": result_text.strip(),
+                        "uputa": (
+                            "Korisniku prikaži detalje ovog jednog događaja: naziv, datum i kratak opis."
+                            "Na kraju zadrži točan link za više informacija onako kako je naveden."
+                            )
+                    }
+                else:
+                    result = {
+                        "data": result_text.strip(),
+                        "uputa": (
+                            "Predstavi ove događaje korisniku kao kratak pregled"
+                            "Svaki događaj prikaži u zasebnom redu u ovom formatu:\n"
+                            "📌 Naziv događaja\n"
+                            "📅 Datum\n\n"
+                            "Ako korisnik traži specifičan događaj ili detalje, opiši ga."
+                            "Na kraju dodaj: 'Sva događanja možete pronaći na: https://www.halubajska-zora.hr/category/novosti/' "
+                            "Obavezno zadrži datume onako kako su navedeni."
+                        )
+                    }
 
                 events_cache[cache_key] = result
                 self.log(
