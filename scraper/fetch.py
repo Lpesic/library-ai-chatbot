@@ -259,7 +259,7 @@ def save_languages(languages):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(languages, f, ensure_ascii=False, indent=2)
     
-    print(f"\n✓ Spremljeno u: {output_file}")
+    print(f"\n✓ Spremljeno u: {output_file}", flush=True)
 
 if __name__ == "__main__":
     print("=" * 70)

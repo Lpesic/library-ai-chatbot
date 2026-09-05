@@ -49,7 +49,7 @@ class AdvancedUrlBuilder:
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Greška pri učitavanju {path}: {e}")
+            print(f"Greška pri učitavanju {path}: {e}", flush=True)
             return {}
 
     async def analyze_query(self, user_query: str) -> Dict[str, Any]:
@@ -141,11 +141,11 @@ class AdvancedUrlBuilder:
         metadata = json.loads(response.choices[0].message.content)
         # --- test print ---
         print("\n" + "═"*50)
-        print("🤖 BOT JE SHVATIO:")
+        print("🤖 BOT JE SHVATIO:", flush=True)
         for k, v in metadata.items():
             if v is not None and v != [] and v != False:
-                print(f"   ➤ {k.upper()}: {v}")
-        print("═"*50 + "\n")
+                print(f"   ➤ {k.upper()}: {v}", flush=True)
+        print("═"*50 + "\n", flush=True)
         # ---
         return metadata
 
@@ -250,7 +250,7 @@ async def test_console():
     """Konzolni test za provjeru rada"""
     api_key = os.getenv("SAMBANOVA_KEY")
     if not api_key:
-        print("Postavi SAMBANOVA_KEY u env varijable!")
+        print("Postavi SAMBANOVA_KEY u env varijable!", flush=True)
         return
 
     builder = AdvancedUrlBuilder(api_key)
