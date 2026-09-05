@@ -12,7 +12,6 @@ import hashlib
 from collections import defaultdict
 from cachetools import TTLCache
 from typing import Dict, List, Optional
-from groq import AsyncGroq
 from openai import AsyncOpenAI
 from contextvars import ContextVar
 from dotenv import load_dotenv
@@ -71,7 +70,7 @@ metrics = {
 }
 metrics["requests"]["avg_latency"] = 0.0
 class LibraryChatbot:
-    """Groq-powered library chatbot"""
+    """SambaNova-powered library chatbot"""
     
     def _new_request_id(self):
         return str(uuid.uuid4())[:8]
@@ -328,7 +327,7 @@ class LibraryChatbot:
         user_message: str,
         conversation_history: Optional[List[Dict]] = None
     ) -> str:
-        """Chat sa Groq modelom"""
+        """Chat sa llm modelom"""
 
         request_id = self._new_request_id()
         request_id_var.set(request_id)
@@ -403,7 +402,7 @@ class LibraryChatbot:
                 success = True
                 return result
 
-            # Pozovi Groq sa tool use
+            # Pozovi SN sa tool use
             async with self.semaphore:
                 response = await self.client.chat.completions.create(
                     model=self.tool_model,

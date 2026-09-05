@@ -154,19 +154,18 @@ class FastAvailabilityChecker:
 
     def _format_result(self, book_query: str, marinici_res: Dict, viskovo_res: Dict) -> Dict:
         # Skupljamo sve naslove koji uopće postoje u bazi na obje lokacije
-        svi_postojeći = list(set(marinici_res['existing'] + viskovo_res['existing']))
+        svi_postojeci = list(set(marinici_res['existing'] + viskovo_res['existing']))
         sve_eknjige = list(set(marinici_res['ebooks'] + viskovo_res['ebooks']))
-        svi_postojeći = [n for n in svi_postojeći if n not in sve_eknjige]
+        svi_postojeci = [n for n in svi_postojeci if n not in sve_eknjige]
 
         final_messages = []
 
         for naslov in sve_eknjige:
             final_messages.append(
-                f"📱 '{naslov}' je e-knjiga — dostupna za online posudbu u bilo kojem trenutku putem digitalne platforme knjižnice."
-            )
+                f"📱 '{naslov}' je e-knjiga — dostupna za online posudbu u bilo kojem trenutku putem digitalne platforme knjižnice.")
 
         # Prolazimo kroz svaki naslov koji smo našli u bazi
-        for naslov in svi_postojeći:
+        for naslov in svi_postojeci:
             lokacije = []
             if naslov in marinici_res['available']: lokacije.append("Marinići")
             if naslov in viskovo_res['available']: lokacije.append("Viškovo")
@@ -174,7 +173,7 @@ class FastAvailabilityChecker:
             if lokacije:
                 final_messages.append(f"✅ '{naslov}' je dostupna ({' i '.join(lokacije)}).")
             else:
-                # Ako naslov postoji u 'svi_postojeći' ali nije u 'available' listama
+                # Ako naslov postoji u 'svi_postojeci' ali nije u 'available' listama
                 final_messages.append(f"❌ '{naslov}' je trenutno posuđena.")
 
         if not final_messages:

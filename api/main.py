@@ -97,9 +97,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 async def add_request_id(request: Request, call_next):
     request_id = str(uuid.uuid4())[:8]
     request.state.request_id = request_id
-
     response = await call_next(request)
-
     response.headers["X-Request-ID"] = request_id
 
     return response
@@ -108,14 +106,13 @@ async def add_request_id(request: Request, call_next):
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
-
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
     return response
 
-# CORS - omogućava frontendima da pristupa API-ju
+# CORS - omogućava frontendima da pristupa API-ju JER SU domene frontenda i backenda razlicite
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # U production stavi specifične domene "https://chat-widget.com"
@@ -159,13 +156,13 @@ def get_http_client(request: Request) -> httpx.AsyncClient:
 # ENDPOINTS 
 
 @app.post("/api/chat", response_model=ChatResponse)
-@limiter.limit("10/minute")
+#@limiter.limit("10/minute")
 async def chat_ai(
     request: Request,
     body: ChatRequest,
     chatbot: LibraryChatbot = Depends(get_chatbot)
-    ):
-    """Groq-powered chat endpoint (NAJBRŽI!)"""
+):
+    """SN-powered chat endpoint"""
 
     logger.info(f"[{request.state.request_id}] Incoming request")
 
@@ -204,7 +201,6 @@ async def chat_ai(
     
     except asyncio.TimeoutError:
         logger.error(f"[{request.state.request_id}] Request timeout")
-
         raise HTTPException(
             status_code=504,
             detail="AI odgovor traje predugo."
@@ -213,12 +209,10 @@ async def chat_ai(
     except Exception as e:
         logger.error(
             f"[{request.state.request_id}] AI chat error: {e}",
-            exc_info=True
-        )
+            exc_info=True)
         raise HTTPException(
             status_code=500, 
-            detail="Došlo je do greške pri obradi zahtjeva."
-        )
+            detail="Došlo je do greške pri obradi zahtjeva.")
     
 @app.get("/health")
 async def health(request: Request):

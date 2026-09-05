@@ -12,4 +12,3 @@ httpx
 groq==0.11.0
 cachetools>=5.3.0
 slowapi==0.1.9
-cerebras-cloud-sdk-1.91.0 h2-4.4.1 hpack-4.2.0 hyperframe-6.1.0

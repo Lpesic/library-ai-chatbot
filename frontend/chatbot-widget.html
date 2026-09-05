@@ -866,9 +866,7 @@
 
       chatInput.addEventListener("paste", (e) => {
         e.preventDefault();
-
         const text = (e.clipboardData || window.clipboardData).getData("text");
-
         const current = chatInput.value;
         const newValue = (current + text).slice(0, MAX_INPUT_LENGTH);
 

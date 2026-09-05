@@ -144,16 +144,10 @@ def save_categories(categories):
 def fetch_languages():
     """Dohvati sve jezike sa katalog stranice"""
     
-    url = "https://katalog.halubajska-zora.hr/pagesMisc/Katalog.aspx"
-    
-    print(f"\nDohvaćam jezike sa: {url}")
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-    
+    url = "https://katalog.halubajska-zora.hr/pagesMisc/Katalog.aspx"  
+    print(f"\nDohvaćam jezike sa: {url}") 
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'} 
     response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers, verify=False)
-    
     soup = BeautifulSoup(response.text, 'html.parser')
     
     # Pronađi sve linkove sa fid0=5 (jezik)
@@ -203,8 +197,7 @@ def fetch_languages():
     
     for link in links_with_fid5:
         href = link.get('href', '')
-        display_name = link.get_text(strip=True)
-        
+        display_name = link.get_text(strip=True)  
         if not display_name or not href:
             continue
         
@@ -261,8 +254,7 @@ def save_languages(languages):
     """Spremi jezike u JSON"""
     output_file = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        'languages.json'
-    )
+        'languages.json')
     
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(languages, f, ensure_ascii=False, indent=2)

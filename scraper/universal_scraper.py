@@ -33,7 +33,6 @@ class UniversalScraper:
                 first_page_url = f"{url}&currentPage=1"
 
                 logger.info(f"Direktan request: {first_page_url[:120]}...")
-
                 response = await client.get(first_page_url)
                 response.raise_for_status()
             
