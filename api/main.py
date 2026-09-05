@@ -19,14 +19,24 @@ import httpx
 import asyncio
 import uuid
 import time
-from contextlib import asynccontextmanager
+
 from pathlib import Path
-from api.groq_integration import LibraryChatbot
 from slowapi import Limiter
+
 from slowapi.util import get_remote_address
+from contextlib import asynccontextmanager
+
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler()],
+    force=True
+)
+
+from api.groq_integration import LibraryChatbot
 
 logger = logging.getLogger(__name__)
 

@@ -34,6 +34,15 @@ class UniversalScraper:
 
                 logger.info(f"Direktan request: {first_page_url[:120]}...")
                 response = await client.get(first_page_url)
+                ### LOG CATALOG RESPONSE ###
+                logger.warning(
+                    "CATALOG TEST | status=%s | final_url=%s | bytes=%s | server=%s",
+                    response.status_code,
+                    response.url,
+                    len(response.content),
+                    response.headers.get("server"))
+                ### LOG CATALOG HTML FOR DEBUGGING ###
+                logger.warning("CATALOG HTML START: %s", response.text[:300])
                 response.raise_for_status()
             
                 if response.status_code != 200:
