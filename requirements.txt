@@ -7,4 +7,4 @@ pydantic==2.5.2
 python-dotenv==1.0.0
 Requests==2.34.2
 slowapi==0.1.9
-uvicorn[standard]==0.24.0
+uvicorn==0.40.0
