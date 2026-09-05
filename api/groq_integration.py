@@ -606,7 +606,7 @@ class LibraryChatbot:
             tools=[t.function.name for t in tool_calls]
         )
         
-        # Pozovi Groq ponovno sa rezultatima
+        # Pozovi SambaNova ponovno sa rezultatima
         try:
             async with self.semaphore:
                 final_response = await self.client.chat.completions.create(
@@ -1256,7 +1256,7 @@ class LibraryChatbot:
     
     def _clean_json_artifacts(self, text: str) -> str:
         """
-        Ukloni JSON artefakte iz Groq odgovora
+        Ukloni JSON artefakte iz SambaNova odgovora
         
         Primjeri:
         - {"book_title":"X","mode":"summary"}
