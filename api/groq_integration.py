@@ -1164,7 +1164,7 @@ class LibraryChatbot:
             return None
         
         except Exception as e:
-            logger.error(f"Catalog search error: {e}")
+            logger.error(f"Catalog search error")
             book_id_cache[cache_key] = "__NOT_FOUND__" 
             return None
     

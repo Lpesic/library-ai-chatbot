@@ -36,37 +36,37 @@ class UniversalScraper:
                 response = await client.get(first_page_url)
                 response.raise_for_status()
             
-            if response.status_code != 200:
-                logger.error(f"Greška pri dohvaćanju: {response.status_code}")
-                return []
+                if response.status_code != 200:
+                    logger.error(f"Greška pri dohvaćanju: {response.status_code}")
+                    return []
 
-            # 2. Parsiranje HTML-a
-            soup = BeautifulSoup(response.text, 'html.parser')
+                # 2. Parsiranje HTML-a
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-            last_page = 1
-            pager_links = soup.select("#divPagerBottom .aNumber")
-            if pager_links:
-                try:
-                    # Uzimamo tekst zadnjeg broja (u tvom primjeru 1607)
-                    last_page = int(pager_links[-1].get_text(strip=True))
-                except:
-                    last_page = 1
-            
-            # Određivanje ciljne stranice
-            target_url = first_page_url # Default
-
-            if random_selection and last_page > 1:
-                # Izbjegavamo zadnju stranicu ako ih ima više (da ne bude poluprazna)
-                high_bound = last_page - 1 if last_page > 2 else last_page
-                random_page = random.randint(1, high_bound)
+                last_page = 1
+                pager_links = soup.select("#divPagerBottom .aNumber")
+                if pager_links:
+                    try:
+                        # Uzimamo tekst zadnjeg broja (u tvom primjeru 1607)
+                        last_page = int(pager_links[-1].get_text(strip=True))
+                    except:
+                        last_page = 1
                 
-                # Sklapamo novi URL s nasumičnom stranicom
-                target_url = f"{url}&currentPage={random_page}"
-                logger.info(f"Deep Random: Odabrana stranica {random_page} od ukupno {last_page}")
-                
-                # Ponovni poziv na tu nasumičnu stranicu
-                res = await client.get(target_url)
-                soup = BeautifulSoup(res.text, 'html.parser')
+                # Određivanje ciljne stranice
+                target_url = first_page_url # Default
+
+                if random_selection and last_page > 1:
+                    # Izbjegavamo zadnju stranicu ako ih ima više (da ne bude poluprazna)
+                    high_bound = last_page - 1 if last_page > 2 else last_page
+                    random_page = random.randint(1, high_bound)
+                    
+                    # Sklapamo novi URL s nasumičnom stranicom
+                    target_url = f"{url}&currentPage={random_page}"
+                    logger.info(f"Deep Random: Odabrana stranica {random_page} od ukupno {last_page}")
+                    
+                    # Ponovni poziv na tu nasumičnu stranicu
+                    res = await client.get(target_url)
+                    soup = BeautifulSoup(res.text, 'html.parser')
             
             # Parsiranje rezultata
             item_divs = soup.find_all('div', class_='divBibZapis')
@@ -125,9 +125,7 @@ class UniversalScraper:
             return all_items[:limit]
 
         except Exception as e:
-            logger.error(f"UniversalScraper Greška: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"UniversalScraper greška")
             return []      
     
     def format_message(self, items: List[Dict], title_prefix: str) -> str:
