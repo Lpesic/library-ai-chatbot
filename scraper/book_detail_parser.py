@@ -326,24 +326,3 @@ class BookDetailParser:
             return {}
             
         return recommendations
-
-# Test
-if __name__ == "__main__":
-    parser = BookDetailParser()
-    
-    # Test sa prvom knjigom
-    book_id = "8000531"
-    print(f"Parsiram knjigu ID: {book_id}\n")
-    
-    book_data = parser.parse_book_detail(book_id)
-    
-    print("=" * 70)
-    print("REZULTATI PARSIRANJA:")
-    print("=" * 70)
-    for key, value in book_data.items():
-        if isinstance(value, list):
-            print(f"\n{key.upper()}:")
-            for item in value:
-                print(f"  - {item}")
-        else:
-            print(f"{key}: {value}")

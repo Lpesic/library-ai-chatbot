@@ -1,11 +1,8 @@
-FROM python:3.12.0 AS builder
+
+FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
-
-
-FROM python:3.12-slim
 
 WORKDIR /app
 

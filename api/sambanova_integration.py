@@ -19,8 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 LOG_DIR = os.path.join(BASE_DIR, "logs")
+
 os.makedirs(LOG_DIR, exist_ok=True)
 
 logger = logging.getLogger(__name__)
@@ -1388,28 +1388,3 @@ class LibraryChatbot:
     def _cache_miss(self, cache_name: str, key: str):
         self.log("cache_miss", cache=cache_name, key=key)
      
-# Quick test
-if __name__ == "__main__":
-    import asyncio
-    
-    async def test():
-        print("=" * 70)
-        print("GROQ CHATBOT TEST")
-        print("=" * 70)
-        
-        chatbot = LibraryChatbot()
-        
-        test_queries = [
-            "Koje knjige ima Jo Nesbo?",
-            "Što ima novo?",
-            "Preporuči mi psihologiju"
-        ]
-        
-        for query in test_queries:
-            print(f"\nUSER: {query}")
-            print("-" * 70)
-            
-            response = await chatbot.chat(query)
-            print(f"BOT: {response}\n")
-    
-    asyncio.run(test())

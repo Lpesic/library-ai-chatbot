@@ -3,3 +3,17 @@ fly.toml
 __pycache__/
 .envrc
 .venv/
+.git/
+.gitignore
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+logs/
+*.log
+test_env.py
+requirements_old.txt
+commits.txt

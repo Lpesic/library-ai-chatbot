@@ -157,10 +157,8 @@ class CategoryScraper:
                 logger.info(f"✓ Učitano {len(data)} jezika")
                 return data
         
-        except Exception as e:
-            logger.error(f"Greška pri učitavanju jezika: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Greška pri učitavanju jezika.")
             return {}
 
     async def get_items_by_language(
@@ -235,10 +233,8 @@ class CategoryScraper:
             
             return items
         
-        except Exception as e:
-            logger.error(f"Greška pri dohvaćanju jezika: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Greška pri dohvaćanju jezika")
             return []
 
     def format_language_message(
@@ -320,8 +316,8 @@ class CategoryScraper:
         except json.JSONDecodeError as e:
             logger.error(f"JSON format nije ispravan: {e}")
             return {}
-        except Exception as e:
-            logger.error(f"Greška pri učitavanju UDK kategorija: {e}")
+        except Exception:
+            logger.exception("Greška pri učitavanju UDK kategorija")
             return {}
 
     async def get_items_by_subject(
@@ -405,10 +401,8 @@ class CategoryScraper:
             
             return items
         
-        except Exception as e:
-            logger.error(f"Greška pri dohvaćanju teme: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception(f"Greška pri dohvaćanju teme")
             return []
 
     async def get_items_by_category(
@@ -484,10 +478,8 @@ class CategoryScraper:
             
             return items
         
-        except Exception as e:
-            logger.error(f"Greška pri dohvaćanju kategorije: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Greška pri dohvaćanju kategorije")
             return []
     
     def format_subject_message(
@@ -591,10 +583,8 @@ class CategoryScraper:
             
             return books
         
-        except Exception as e:
-            logger.error(f"Greška pri dohvaćanju najčitanijih: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Greška pri dohvaćanju najčitanijih")
             return []
 
     def format_most_read_message(
@@ -721,8 +711,8 @@ class CategoryScraper:
                 
                 logger.info(f"  {title} ({item_type})")
             
-            except Exception as e:
-                logger.error(f"Greška pri parsiranju stavke: {e}")
+            except Exception:
+                logger.exception("Greška pri parsiranju stavke")
                 continue
         
         return items
@@ -763,40 +753,3 @@ class CategoryScraper:
         msg += f"🔗 Katalog: https://katalog.halubajska-zora.hr"
         
         return msg
-
-# Test
-if __name__ == "__main__":
-    import asyncio
-    
-    async def test():
-        scraper = CategoryScraper()
-        print("=" * 70)
-        print("CATEGORY SCRAPER - TEST")
-        print("=" * 70)
-        
-        print(f"\nUkupno kategorija: {len(scraper.udk_categories)}")
-        print("\nPrvih 10 ključeva:")
-        for i, key in enumerate(list(scraper.udk_categories.keys())[:10]):
-            print(f"  {i+1}. '{key}'")
-            
-            print("\n" + "=" * 70)
-            print("📚 TEST 3: PRETRAGA PO TEMAMA (UDK)")
-            print("=" * 70)
-            
-            test_subjects = ['psihologija', 'sport', 'povijest', 'glazba']
-            
-            for subject in test_subjects:
-                print(f"\n📚 Tema: {subject}")
-                print("-" * 70)
-                
-            if subject in scraper.udk_categories:
-                print(f"✓ Pronađeno u JSON-u")
-                items = await scraper.get_items_by_subject(subject, limit=3)
-                print(f"Dohvaćeno: {len(items)} knjiga")
-            else:
-                print(f"✗ NIJE pronađeno u JSON-u")
-                print(f"Svi ključevi koji sadrže '{subject}':")
-                matches = [k for k in scraper.udk_categories.keys() if subject in k]
-                print(f"  {matches}")
-    
-    asyncio.run(test())

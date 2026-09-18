@@ -202,19 +202,3 @@ class FastAvailabilityChecker:
             variants.append(" ".join(words[:2])) 
 
         return list(dict.fromkeys(variants))
-
-if __name__ == "__main__":
-    async def test():
-        checker = FastAvailabilityChecker()
-        # Testiramo točan match, posuđenu knjigu sa sličnim rezultatima i dugačak naslov
-        test_books = ["Iz Vedra neba", "Vučji sat", "zov divljaštva"]
-        
-        for book in test_books:
-            print(f"\n📚 Testiram: {book}")
-            result = await checker.check_availability(book)
-            print(f"💬 {result['message']}")
-
-    async def main():
-        await test()
-
-    asyncio.run(main())

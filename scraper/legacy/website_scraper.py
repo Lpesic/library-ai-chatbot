@@ -118,38 +118,3 @@ class WebsiteScraper:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         logger.info(f"✓ Spremljeno u {filename}")
-
-
-# Test
-if __name__ == "__main__":
-    print("=" * 70)
-    print("WEBSITE SCRAPER TEST")
-    print("=" * 70)
-    
-    scraper = WebsiteScraper()
-    
-    # Scrapa stranicu o članstvu
-    print("\n1. Scrapam informacije o članstvu...")
-    membership_data = scraper.scrape_membership_info()
-    
-    if membership_data:
-        print(f"\n✓ Pronađeno {len(membership_data['sections'])} sekcija:")
-        for section in membership_data['sections'][:5]:
-            print(f"  - {section['title']}")
-        
-        # Spremi u JSON
-        scraper.save_to_json(membership_data, 'data/membership_info.json')
-    
-    # Dodatne stranice koje možemo scrapati
-    print("\n2. Scrapam dodatne stranice...")
-    additional_urls = [
-        "https://www.halubajska-zora.hr/clanstvo-i-uvjeti-koristenja/",
-        "https://www.halubajska-zora.hr/usluge/",
-    ]
-    
-    all_pages = scraper.scrape_multiple_pages(additional_urls)
-    scraper.save_to_json(all_pages, 'data/website_all_pages.json')
-    
-    print("\n" + "=" * 70)
-    print("✓ Scraping završen!")
-    print("=" * 70)

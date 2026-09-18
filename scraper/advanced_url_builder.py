@@ -4,6 +4,9 @@ import urllib.parse
 import os
 from typing import Dict, Any
 from openai import AsyncOpenAI
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AdvancedUrlBuilder:
     def __init__(self, api_key: str):
@@ -49,7 +52,7 @@ class AdvancedUrlBuilder:
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Greška pri učitavanju {path}: {e}", flush=True)
+            logger.error(f"Greška pri učitavanju {path}: {e}")
             return {}
 
     async def analyze_query(self, user_query: str) -> Dict[str, Any]:
@@ -139,14 +142,15 @@ class AdvancedUrlBuilder:
             response_format={"type": "json_object"}
         )
         metadata = json.loads(response.choices[0].message.content)
-        # --- test print ---
-        print("\n" + "═"*50)
-        print("🤖 BOT JE SHVATIO:", flush=True)
-        for k, v in metadata.items():
-            if v is not None and v != [] and v != False:
-                print(f"   ➤ {k.upper()}: {v}", flush=True)
-        print("═"*50 + "\n", flush=True)
-        # ---
+        
+        print("\n" + "═" * 60, flush=True)
+        print("🤖 PREPOZNATI PARAMETRI UPITA:", flush=True)
+        print("-" * 60, flush=True)
+        for key, value in metadata.items():
+            if value not in (None, [], False, ""):
+                print(f"   ➤ {key.upper()}: {value}", flush=True)
+        print("═" * 60 + "\n", flush=True)
+        
         return metadata
 
     def get_year_code(self, year: int) -> str:
@@ -245,40 +249,3 @@ class AdvancedUrlBuilder:
             idx += 1
 
         return f"{self.base_url}&{'&'.join(params)}"
-
-async def test_console():
-    """Konzolni test za provjeru rada"""
-    api_key = os.getenv("SAMBANOVA_KEY")
-    if not api_key:
-        print("Postavi SAMBANOVA_KEY u env varijable!", flush=True)
-        return
-
-    builder = AdvancedUrlBuilder(api_key)
-    
-    print("\n--- LIBRARY URL BUILDER TEST ---")
-    
-    while True:
-        query = input("\nUnesi upit (ili 'exit' za kraj): ")
-        if query.lower() == 'exit': break
-        
-        try:
-            # 1. Analiza
-            metadata = await builder.analyze_query(query)
-            
-            # 2. Ispis shvaćenog
-            print("\n" + "="*40)
-            print("BOT JE SHVATIO:")
-            for k, v in metadata.items():
-                if v: print(f"   {k.upper()}: {v}")
-            
-            # 3. Generiranje URL-a
-            final_url = builder.build_url(metadata)
-            print("-" * 40)
-            print(f"GENERIRANI URL:\n{final_url}")
-            print("="*40)
-            
-        except Exception as e:
-            print(f"Greška: {e}")
-
-if __name__ == "__main__":
-    asyncio.run(test_console())

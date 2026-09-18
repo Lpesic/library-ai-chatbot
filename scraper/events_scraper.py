@@ -57,24 +57,4 @@ class EventsScraper:
 
         except Exception as e:
             logger.error(f"Pogreška scrapera: {e}")
-            return []        
-
-# --- TEST SKRIPTA ---
-if __name__ == "__main__":
-    import asyncio
-    
-    async def run_test():
-        scraper = EventsScraper()
-        print(f"Skeniram: {scraper.url} ...")
-        rezultati = await scraper.get_events(limit=3)
-        
-        if not rezultati:
-            print("Nema rezultata. Možda stranica blokira direktan pristup?")
-        else:
-            for i, ev in enumerate(rezultati, 1):
-                print(f"\n{i}. {ev['title']}")
-                print(f"   Datum: {ev['date_text']}")
-                print(f"   Link:  {ev['url']}")
-                print(f"   Opis:  {ev['excerpt'][:100]}...")
-
-    asyncio.run(run_test())
+            return []

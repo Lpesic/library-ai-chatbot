@@ -103,15 +103,12 @@ class ScraperAPIChecker:
                 'error': 'Request timeout - pokušaj ponovno'
             }
         
-        except Exception as e:
-            logger.error(f"Greška: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Greška prilikom provjere dostupnosti")
             return {
                 'book_id': book_id,
                 'title': 'Greška',
-                'locations': [],
-                'error': str(e)
+                'locations': []
             }
     
     def _parse_locations(self, soup: BeautifulSoup) -> List[Dict]:
@@ -243,24 +240,3 @@ class ScraperAPIChecker:
             msg += f"\n   Signatura: `{loc.get('signature', 'N/A')}`\n"
         
         return msg
-
-# Test
-async def main():
-    print("=" * 70)
-    print("HTTPX ASYNC TEST")
-    print("=" * 70)
-    
-    checker = ScraperAPIChecker()
-    test_id = "428003512"
-    
-    # Moramo koristiti 'await'!
-    result = await checker.check_availability(test_id)
-    
-    import json
-    print("\nRAW DATA:")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-    print("\nPORUKA:")
-    print(checker.format_availability_message(result))
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, List
-import sys
 import os
 import logging
 import re
@@ -36,29 +35,17 @@ logging.basicConfig(
     force=True
 )
 
-from api.groq_integration import LibraryChatbot
+from api.sambanova_integration import LibraryChatbot
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-book_detail_parser = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # STARTUP
     logger.info("Pokrećem aplikaciju...")
     app.state.started_at = time.time()
-
-    limits = httpx.Limits(
-        max_connections=20,
-        max_keepalive_connections=10
-    )
-
-    app.state.http_client = httpx.AsyncClient(
-        timeout=30.0,
-        limits=limits
-    )
 
     sambanova_key = os.getenv('SAMBANOVA_KEY')
     app.state.sambanova_enabled = bool(sambanova_key)
@@ -70,18 +57,6 @@ async def lifespan(app: FastAPI):
         app.state.chatbot = None
         logger.warning("AI chatbot nije aktivan")
 
-    try:
-        from scraper.book_detail_parser import BookDetailParser
-
-        app.state.book_detail_parser = BookDetailParser()
-
-    except ImportError as e:
-        logger.error(f"Greška pri inicijalizaciji scrapera: {e}")
-        app.state.book_detail_parser = None
-
-        # Fallback za lokalno testiranje ako struktura foldera varira
-        sys.path.append(os.getcwd())
-        
     yield
 
     # SHUTDOWN
@@ -160,8 +135,6 @@ def get_chatbot(request: Request) -> LibraryChatbot:
         raise HTTPException(503, "AI chatbot nije dostupan")
     return chatbot
 
-def get_http_client(request: Request) -> httpx.AsyncClient:
-    return request.app.state.http_client
 
 # ENDPOINTS 
 
@@ -232,6 +205,10 @@ async def health(request: Request):
         "ai": getattr(request.app.state, "sambanova_enabled", False),
         "http_client": request.app.state.http_client is not None
     }
+
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon():
+    return FileResponse("frontend/favicon.png")
 
 frontend_dir = BASE_DIR / "frontend"
 
