@@ -143,13 +143,20 @@ class AdvancedUrlBuilder:
         )
         metadata = json.loads(response.choices[0].message.content)
         
-        print("\n" + "═" * 60, flush=True)
-        print("🤖 PREPOZNATI PARAMETRI UPITA:", flush=True)
-        print("-" * 60, flush=True)
+        lines = [
+            "",
+            "=" * 60,
+            "🤖 PREPOZNATI PARAMETRI UPITA:",
+            "-" * 60
+        ]
         for key, value in metadata.items():
             if value not in (None, [], False, ""):
-                print(f"   ➤ {key.upper()}: {value}", flush=True)
-        print("═" * 60 + "\n", flush=True)
+                lines.append(f"   ➤ {key.upper()}: {value}")
+        lines.extend([
+            "═" * 60,
+            ""
+        ])
+        print("\n".join(lines), flush=True)
         
         return metadata
 

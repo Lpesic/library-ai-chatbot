@@ -14,7 +14,6 @@ from typing import Optional, Dict, List
 import os
 import logging
 import re
-import httpx
 import asyncio
 import uuid
 import time
@@ -61,7 +60,6 @@ async def lifespan(app: FastAPI):
 
     # SHUTDOWN
     logger.info("Gasim aplikaciju...")
-    await app.state.http_client.aclose()
 
 # Inicijaliziraj FastAPI
 app = FastAPI(
@@ -117,17 +115,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     
-class BookSearchRequest(BaseModel):
-    query: str
-    limit: Optional[int] = 10
-
-class Book(BaseModel):
-    id: str
-    title: str
-    author: str
-    year: Optional[str] = None
-    isbn: Optional[str] = None
-    publisher: Optional[str] = None
 
 def get_chatbot(request: Request) -> LibraryChatbot:
     chatbot = request.app.state.chatbot
@@ -202,13 +189,16 @@ async def health(request: Request):
     return {
         "status": "ok",
         "uptime_seconds": round(time.time() - request.app.state.started_at),
-        "ai": getattr(request.app.state, "sambanova_enabled", False),
-        "http_client": request.app.state.http_client is not None
+        "ai": getattr(request.app.state, "sambanova_enabled", False)
     }
 
 @app.get("/favicon.png", include_in_schema=False)
 async def favicon():
     return FileResponse("frontend/favicon.png")
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    return FileResponse("frontend/favicon.png", media_type="image/png")
 
 frontend_dir = BASE_DIR / "frontend"
 
