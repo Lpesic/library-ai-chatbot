@@ -12,7 +12,7 @@ import hashlib
 from collections import defaultdict
 from cachetools import TTLCache
 from typing import Dict, List, Optional
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIStatusError
 from contextvars import ContextVar
 from dotenv import load_dotenv
 
@@ -152,6 +152,19 @@ class LibraryChatbot:
         self.info = self.load_membership_info()
         self.system_prompt = self._build_system_prompt()
         self.tools = self._define_tools()
+
+
+    async def _sambanova_request(self, **kwargs):
+        """Centralizirani SambaNova API poziv."""
+        try:
+            return await self.client.chat.completions.create(**kwargs)
+
+        except APIStatusError as e:
+            if e.status_code == 402:
+                logger.error("SambaNova API credits exhausted")
+                raise RuntimeError("SAMBANOVA_CREDITS_EXHAUSTED") from None
+
+            raise
     
     def _build_system_prompt(self):
         return f"""
@@ -398,14 +411,14 @@ class LibraryChatbot:
 
             # Pozovi SN sa tool use
             async with self.semaphore:
-                response = await self.client.chat.completions.create(
+                response = await self._sambanova_request(
                     model=self.tool_model,
                     messages=messages,
                     temperature=0.2,
                     tools=self.tools,
                     tool_choice="auto",
                     timeout=10
-                    )
+                )
 
             if hasattr(response, "usage") and response.usage:
                 self.log(
@@ -437,6 +450,18 @@ class LibraryChatbot:
             success = True
             return response_message.content
         
+        except RuntimeError as e:
+            if str (e) == "SAMBANOVA_CREDITS_EXHAUSTED":
+                metrics["requests"]["fail"] += 1
+                self.log(
+                    "request_fail",
+                    error_type="credits_exhausted",
+                    latency=round(time.time() - start_time, 2)
+                )
+                return ("AI usluga trenutno nije dostupna. Molimo obratite se knjižnici ili pokušajte ponovno kasnije.")
+
+            raise
+            
         except Exception as e:
             if "tool_use_failed" in str(e):
                 logger.warning("Tool failed -> retry sa prisilnim pravilnim tipovima")
@@ -454,12 +479,12 @@ class LibraryChatbot:
                 })
 
                 async with self.semaphore:
-                    retry = await self.client.chat.completions.create(
+                    retry = await self._sambanova_request(
                         model=self.tool_model,
                         messages=messages,
                         tools=self.tools,
                         tool_choice="auto",
-                        temperature=0.0
+                        temperature=0.0,
                     )
 
                 msg = retry.choices[0].message
@@ -603,7 +628,7 @@ class LibraryChatbot:
         # Pozovi SambaNova ponovno sa rezultatima
         try:
             async with self.semaphore:
-                final_response = await self.client.chat.completions.create(
+                final_response = await self._sambanova_request(
                     model=self.fast_model,
                     messages=messages,
                     temperature=0.5
@@ -626,6 +651,12 @@ class LibraryChatbot:
                 chars=len(final_text)
             )
             return final_text 
+
+        except RuntimeError as e:
+            if str(e) == "SAMBANOVA_CREDITS_EXHAUSTED":
+                raise
+            logger.error(f"Greška u finalnom odgovoru: {e}")
+            return "Pronašao sam rezultate, ali ih ne mogu prikazati. Pokušaj ponovno."
         
         except Exception as e:
             logger.error(f"Greška u finalnom odgovoru: {e}")
@@ -1195,7 +1226,7 @@ class LibraryChatbot:
         
         try:
             async with self.semaphore:
-                response = await self.client.chat.completions.create(
+                response = await self._sambanova_request(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.fast_model,
                     temperature=0.7,
@@ -1203,7 +1234,6 @@ class LibraryChatbot:
                 )
             return response.choices[0].message.content.strip()
 
-        
         except Exception as e:
             logger.error(f"AI description error: {e}")
             return original_desc if has_desc else "Opis nije dostupan."

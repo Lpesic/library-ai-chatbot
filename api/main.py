@@ -95,10 +95,10 @@ async def security_headers(request: Request, call_next):
 
     return response
 
-# CORS - omogućava frontendima da pristupa API-ju JER SU domene frontenda i backenda razlicite
+# CORS - omogućava frontendima da pristupa API-ju jer ce domene frontenda i backenda biti razlicite
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # U production stavi specifične domene "https://chat-widget.com"
+    allow_origins=["*"],  # U produkciji će biti specifične domene "https://halubajska-zora.com"
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -126,7 +126,7 @@ def get_chatbot(request: Request) -> LibraryChatbot:
 # ENDPOINTS 
 
 @app.post("/api/chat", response_model=ChatResponse)
-#@limiter.limit("10/minute")
+@limiter.limit("10/minute")
 async def chat_ai(
     request: Request,
     body: ChatRequest,
@@ -154,7 +154,7 @@ async def chat_ai(
     
     if len(re.sub(r"\W", "", message)) == 0:
         logger.warning(f"[{request.state.request_id}] INVALID SYMBOL-ONLY MESSAGE")
-        raise HTTPException(400, "Ups! Ne mogu to razumijeti.")
+        raise HTTPException(400, "Ups! Ne mogu to razumjeti.")
   
     try:
         history = (body.history or [])[-10:]
