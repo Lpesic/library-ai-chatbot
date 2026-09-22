@@ -197,11 +197,12 @@ class BookDetailParser:
         return subjects
     
     def _extract_classifications(self, soup: BeautifulSoup) -> List[Dict]:
-        """Izvlači klasifikacijske oznake"""
+        """Izvlači klasifikacijske oznake, uz fallback na signaturu primjerka."""
         classifications = []
-        rows = soup.find_all('div', class_='row')
 
         # 1. Primarno: klasifikacijska oznaka iz bibliografskog zapisa
+        rows = soup.find_all('div', class_='row')
+
         for row in rows:
             label = row.find('div', class_='tdBibliografskiZapisNaziv')
 
@@ -213,7 +214,7 @@ class BookDetailParser:
 
                     if code_link:
                         code = code_link.get_text(strip=True)
-                        description = value_div.get_text()
+                        description = value_div.get_text(" ", strip=True)
                         description = description.replace(code, '').strip()
 
                         classifications.append({
@@ -221,16 +222,24 @@ class BookDetailParser:
                             'description': description
                         })
 
-        # Ako je klasifikacija pronađena normalnim putem, koristi nju
         if classifications:
+            logger.info(
+                f"Klasifikacije iz bibliografskog zapisa: "
+                f"{[item['code'] for item in classifications]}"
+            )
             return classifications
 
-        # 2. Fallback: pokušaj izvući klasifikaciju iz signature primjerka
-        location_rows = soup.select('tr.zcat-location-collapsed')
+        # 2. Fallback: klasifikacija iz signature primjerka
+        location_tab = soup.find('div', id='divLokacijeTab')
 
-        for row in location_rows:
+        if not location_tab:
+            logger.info("Nije pronađen divLokacijeTab za fallback klasifikacije")
+            return []
+
+        for row in location_tab.find_all('tr'):
             cells = row.find_all('td')
 
+            # Red primjerka mora imati barem lokaciju i signaturu
             if len(cells) < 2:
                 continue
 
@@ -239,26 +248,28 @@ class BookDetailParser:
             if not signature:
                 continue
 
-            # Primjeri:
-            # "159.9 NEP" -> "159.9"
-            # "821.111-31" -> "821.111-31"
-            match = re.match(r'^([0-9]+(?:\.[0-9]+)?(?:-[0-9]+)?)', signature)
+            # npr. "159.9 NEP" -> "159.9"
+            # npr. "821.163.42-31 HOR" -> "821.163.42-31"
+            match = re.match(r'^(\d+(?:\.\d+)*(?:-\d+)?)', signature)
 
-            if match:
-                code = match.group(1)
+            if not match:
+                continue
 
-                # Spriječi duplikate ako više primjeraka ima istu signaturu
-                if not any(item['code'] == code for item in classifications):
-                    classifications.append({
-                        'code': code,
-                        'description': f'Izvedeno iz signature: {signature}'
-                    })
+            code = match.group(1)
+
+            if not any(item['code'] == code for item in classifications):
+                classifications.append({
+                    'code': code,
+                    'description': f'Izvedeno iz signature: {signature}'
+                })
 
         if classifications:
             logger.info(
                 f"Klasifikacija pronađena iz signature: "
                 f"{[item['code'] for item in classifications]}"
             )
+        else:
+            logger.info("Nije pronađena klasifikacija ni iz signature")
 
         return classifications
     
