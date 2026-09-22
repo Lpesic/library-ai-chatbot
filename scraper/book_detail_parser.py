@@ -200,23 +200,66 @@ class BookDetailParser:
         """Izvlači klasifikacijske oznake"""
         classifications = []
         rows = soup.find_all('div', class_='row')
-        
+
+        # 1. Primarno: klasifikacijska oznaka iz bibliografskog zapisa
         for row in rows:
             label = row.find('div', class_='tdBibliografskiZapisNaziv')
+
             if label and 'Klasifikacijska oznaka' in label.get_text():
                 value_div = row.find('div', class_='tdCellValue')
+
                 if value_div:
                     code_link = value_div.find('a')
+
                     if code_link:
                         code = code_link.get_text(strip=True)
-                        # Opis je ostatak teksta nakon linka
                         description = value_div.get_text()
                         description = description.replace(code, '').strip()
+
                         classifications.append({
                             'code': code,
                             'description': description
                         })
-        
+
+        # Ako je klasifikacija pronađena normalnim putem, koristi nju
+        if classifications:
+            return classifications
+
+        # 2. Fallback: pokušaj izvući klasifikaciju iz signature primjerka
+        location_rows = soup.select('tr.zcat-location-collapsed')
+
+        for row in location_rows:
+            cells = row.find_all('td')
+
+            if len(cells) < 2:
+                continue
+
+            signature = cells[1].get_text(" ", strip=True)
+
+            if not signature:
+                continue
+
+            # Primjeri:
+            # "159.9 NEP" -> "159.9"
+            # "821.111-31" -> "821.111-31"
+            match = re.match(r'^([0-9]+(?:\.[0-9]+)?(?:-[0-9]+)?)', signature)
+
+            if match:
+                code = match.group(1)
+
+                # Spriječi duplikate ako više primjeraka ima istu signaturu
+                if not any(item['code'] == code for item in classifications):
+                    classifications.append({
+                        'code': code,
+                        'description': f'Izvedeno iz signature: {signature}'
+                    })
+
+        if classifications:
+            logger.info(
+                f"Klasifikacija pronađena iz signature: "
+                f"{[item['code'] for item in classifications]}"
+            )
+
         return classifications
     
     def _extract_tags(self, soup: BeautifulSoup) -> List[str]:
