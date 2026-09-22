@@ -47,11 +47,10 @@ class BookDetailParser:
                 'material_type': self._extract_material_type(soup),
                 'notes': self._extract_notes(soup),
                 'description': self._extract_description(soup),
-                'recommendations': self._extract_recommendations(soup),
+                'recommendations': self._extract_recommendations(book_id),
             }
             
             logger.info(f"Uspješno parsirano: {book_data['title']}")
-            book_data['recommendations'] = self._extract_recommendations(book_id)
             return book_data
             
         except Exception as e:
@@ -274,55 +273,75 @@ class BookDetailParser:
     def _extract_recommendations(self, book_id: str) -> Dict[str, List[Dict]]:
         """Izvlači preporuke putem Ajax endpointa"""
         recommendations = {}
-        
-        # URL koji si pronašao (maknuo sam random i timestamp jer obično nisu nužni)
+
         ajax_url = f"{self.base_url}/include/globalAjax.aspx?action=getPreporukeList"
-        
+
         try:
-            # Jako bitno: Referer mora biti stranica knjige jer server tako zna za koji ID šalje preporuke
             clean_id = str(book_id).strip()
 
             ajax_headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) ...',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': '*/*',
                 'Referer': f"{self.base_url}/pagesResults/bibliografskiZapis.aspx?selectedId={clean_id}"
             }
-            
-            response = self.session.get(ajax_url, headers=ajax_headers, timeout=10)
+
+            response = self.session.get(
+                ajax_url,
+                headers=ajax_headers,
+                timeout=10,
+                verify=False
+            )
             response.raise_for_status()
 
             if "application/json" in response.headers.get("Content-Type", ""):
                 return response.json()
-            
-            if response.status_code == 200 and response.text.strip():
-                # Ajax vraća komad HTML-a s carouselima
-                ajax_soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Sada koristimo istu logiku od prije
-                headers = ajax_soup.find_all('div', class_='vpHeader')
-                for header in headers:
-                    name = header.get_text(strip=True)
-                    recommendations[name] = []
-                    
-                    # Nađi prvi prSlicker nakon headera
-                    carousel = header.find_parent('div').find_next_sibling('div', class_='prSlicker')
-                    if not carousel: # Fallback ako je struktura malo drugačija
-                        carousel = header.find_parent().find_next('div', class_='prSlicker')
 
-                    if carousel:
-                        links = carousel.find_all('a', class_='vpLink')
-                        for link in links:
-                            href = link.get('href', '')
-                            id_match = re.search(r'selectedId=(\d+)', href)
-                            
-                            recommendations[name].append({
-                                'id': id_match.group(1) if id_match else "N/A",
-                                'title': link.get('title', link.get_text(strip=True)),
-                                'url': f"{self.base_url}/pagesResults/{href}"
-                            })
-                            
+            if not response.text.strip():
+                logger.warning(f"Prazan odgovor preporuka za book_id={clean_id}")
+                return {}
+
+            ajax_soup = BeautifulSoup(response.text, 'html.parser')
+
+            headers = ajax_soup.find_all('div', class_='vpHeader')
+
+            logger.info(
+                f"Pronađeno {len(headers)} sekcija preporuka za book_id={clean_id}"
+            )
+
+            for header in headers:
+                name = header.get_text(" ", strip=True)
+                recommendations[name] = []
+
+                # Novi katalog: pronađi prvi carousel koji dolazi
+                # nakon odgovarajućeg vpHeader elementa
+                carousel = header.find_next(
+                    'div',
+                    class_=lambda c: c and 'prSlicker' in c
+                )
+
+                if not carousel:
+                    logger.warning(f"Carousel nije pronađen za sekciju '{name}'")
+                    continue
+
+                links = carousel.select('a.vpLink')
+
+                for link in links:
+                    href = link.get('href', '')
+                    id_match = re.search(r'selectedId=(\d+)', href)
+
+                    recommendations[name].append({
+                        'id': id_match.group(1) if id_match else "N/A",
+                        'title': link.get('title') or link.get_text(" ", strip=True),
+                        'url': f"{self.base_url}/pagesResults/{href.lstrip('/')}"
+                    })
+
+                logger.info(
+                    f"Preporuke '{name}': {len(recommendations[name])}"
+                )
+
+            return recommendations
+
         except Exception as e:
+            logger.error(f"Greška pri dohvaćanju preporuka: {e}")
             return {}
-            
-        return recommendations
