@@ -155,16 +155,38 @@ class LibraryChatbot:
 
 
     async def _sambanova_request(self, **kwargs):
-        """Centralizirani SambaNova API poziv."""
-        try:
-            return await self.client.chat.completions.create(**kwargs)
+        """Centralizirani SambaNova API poziv s retry logikom za 429."""
 
-        except APIStatusError as e:
-            if e.status_code == 402:
-                logger.error("SambaNova API credits exhausted")
-                raise RuntimeError("SAMBANOVA_CREDITS_EXHAUSTED") from None
+        max_retries = 3
+        base_delay = 1
 
-            raise
+        for attempt in range(max_retries):
+            try:
+                return await self.client.chat.completions.create(**kwargs)
+
+            except APIStatusError as e:
+                if e.status_code == 402:
+                    logger.error("SambaNova API credits exhausted")
+                    raise RuntimeError("SAMBANOVA_CREDITS_EXHAUSTED") from None
+
+                if e.status_code == 429:
+                    if attempt < max_retries - 1:
+                        delay = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
+
+                        logger.warning(
+                            f"SambaNova 429 - retry "
+                            f"{attempt + 1}/{max_retries} za {delay:.2f}s"
+                        )
+
+                        await asyncio.sleep(delay)
+                        continue
+
+                    logger.error(
+                        "SambaNova API overloaded after all retry attempts"
+                    )
+                    raise RuntimeError("SAMBANOVA_RATE_LIMITED") from None
+
+                raise
     
     def _build_system_prompt(self):
         return f"""
@@ -459,7 +481,18 @@ class LibraryChatbot:
                     latency=round(time.time() - start_time, 2)
                 )
                 return ("AI usluga trenutno nije dostupna. Molimo obratite se knjižnici ili pokušajte ponovno kasnije.")
+            
+            if str(e) == "SAMBANOVA_RATE_LIMITED":
+                metrics["requests"]["fail"] += 1
 
+                self.log(
+                    "request_fail",
+                    error_type="rate_limited",
+                    latency=round(time.time() - start_time, 2)
+                )
+
+                return ("AI usluga je trenutno opterećena. Molimo pokušajte ponovno za nekoliko trenutaka.")
+            
             raise
             
         except Exception as e:
